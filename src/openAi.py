@@ -1,6 +1,6 @@
 from openai import OpenAI
 from typing import List, Dict, Optional
-from .managerAi import *
+from managerAi import *
 
 
 class OpenAIConversation:
