@@ -23,9 +23,9 @@ import jwt
 import copy
 import os
 import io
-from .email_server import *
-from .tron_wallet import *
-from .strike_wallet import *
+from email_server import *
+from tron_wallet import *
+from strike_wallet import *
 
 
 from pprint import pprint

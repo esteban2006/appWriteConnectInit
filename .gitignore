@@ -162,3 +162,4 @@ cython_debug/
 # Directory used by Appwrite CLI for local development
 .appwrite
 allStuff.txt
+src/appWriteConnectInit.code-workspace

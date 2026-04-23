@@ -6,8 +6,8 @@ import cryptography
 import sys
 import time
 import os
-from .cc_execute import *
-from .common_functions import *
+from cc_execute import *
+from common_functions import *
 
 
 from pprint import pprint

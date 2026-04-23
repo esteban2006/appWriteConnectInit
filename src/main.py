@@ -1,14 +1,19 @@
 import json
 from pprint import pprint
 import xml.etree.ElementTree as ET
+import sys
+import os
 
-from .utils import *  # Ensure all necessary imports are available in utils.py
-from .rentals import *
-from .mam import *
-from .managerAi import *
-from .cc_payments import *
-from .openAi import *
-from .picker import *
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
+from utils import *  # Ensure all necessary imports are available in utils.py
+from rentals import *
+from mam import *
+from managerAi import *
+from cc_payments import *
+from openAi import *
+from picker import *
 
 
 def main(context):
