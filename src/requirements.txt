@@ -1,0 +1,9 @@
+appwrite
+PyJWT
+cryptography
+tronpy[mnemonic]
+segno
+mnemonic 
+web3 
+eth-account
+openai
