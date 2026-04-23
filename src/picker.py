@@ -35,7 +35,7 @@ from typing import Optional, Dict, List
 
 
 # files to be imported
-from .common_functions import *
+from common_functions import *
 
 env_loaded = os.getenv("tron_api_one")
 
