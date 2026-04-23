@@ -9,4 +9,4 @@ web3
 eth-account
 openai
 python-dotenv
-tronpy
+# tronpy
