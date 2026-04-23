@@ -1,0 +1,12 @@
+appwrite
+requests
+appwrite
+PyJWT
+cryptography
+mnemonic
+segno
+web3
+eth-account
+openai
+python-dotenv
+tronpy
