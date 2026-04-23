@@ -23,9 +23,9 @@ import jwt
 import copy
 import os
 import io
-from email_server import *
-from tron_wallet import *
-from strike_wallet import *
+from .email_server import *
+from .tron_wallet import *
+from .strike_wallet import *
 
 
 from pprint import pprint
@@ -45,14 +45,14 @@ env_loaded = os.getenv("tron_api_one")
 
 if env_loaded is None:
     # Define the path to your .env file (one directory up)
-    env_file_path = '.env'
+    env_file_path = ".env"
 
     # Open the file and read it
-    with open(env_file_path, 'r') as file:
+    with open(env_file_path, "r") as file:
         for line in file:
             # Skip empty lines and lines starting with # (comments)
-            if line.strip() and not line.startswith('#'):
-                key, value = line.strip().split('=', 1)
+            if line.strip() and not line.startswith("#"):
+                key, value = line.strip().split("=", 1)
                 # Set the environment variable
                 os.environ[key] = value
 
@@ -69,8 +69,7 @@ class Main:
         # env vars ----------------
         self.db_id = os.getenv("db_id")
         self.client = Client()
-        self.client.set_endpoint(
-            os.getenv("appwrite_end_point"))  # Your API Endpoint
+        self.client.set_endpoint(os.getenv("appwrite_end_point"))  # Your API Endpoint
         self.client.set_project(os.getenv("project_name"))  # Your project ID
         self.client.set_key(os.getenv("app_key"))  # Your secret API key
         self.databases = Databases(self.client)
@@ -78,11 +77,14 @@ class Main:
 
         self.football_api_key = os.getenv("football_api_key")
         self.leages_by_country_collection_id = os.getenv(
-            "leages_by_country_collection_id")
+            "leages_by_country_collection_id"
+        )
         self.leagues_by_country_document_id = os.getenv(
-            "leagues_by_country_document_id")
+            "leagues_by_country_document_id"
+        )
         self.get_teams_in_league_collection_id = os.getenv(
-            "get_teams_in_league_collection_id")
+            "get_teams_in_league_collection_id"
+        )
         self.next_games_collection_id = os.getenv("next_games_collection_id")
         self.mam_login = os.getenv("mam_login")
 
@@ -111,16 +113,15 @@ class Main:
             "WalkOver",
         ]
         self.start_timestamp = None
-        self.add_next_round_games = True if os.getenv(
-            "add_next_round_games") else False
+        self.add_next_round_games = True if os.getenv("add_next_round_games") else False
 
         # wallet -------------------------------------------------------
 
         self.client = Tron(HTTPProvider(api_key=os.getenv("tron_api_one")))
         self.client = Tron()
         self.USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-        self.API_URL_BASE = 'https://api.trongrid.io/'
-        self.METHOD_BALANCE_OF = 'balanceOf(address)'
+        self.API_URL_BASE = "https://api.trongrid.io/"
+        self.METHOD_BALANCE_OF = "balanceOf(address)"
 
         # update controls ------------------------------------------
         self.is_balance_being_updated = False
@@ -137,8 +138,11 @@ class Main:
             if email is None:
                 return "Invalid Email"
 
-            account_exits = False if not self.get_document(
-                "manager_login", self.at_id(email)) else True
+            account_exits = (
+                False
+                if not self.get_document("manager_login", self.at_id(email))
+                else True
+            )
 
             if not account_exits:
                 return "Invalid Account"
@@ -157,8 +161,7 @@ class Main:
 
         # Save QR to a buffer (memory) as PNG
         buffer = io.BytesIO()
-        qr.save(buffer, scale=10, dark="#004143",
-                light="#ffffff", border=4, kind="png")
+        qr.save(buffer, scale=10, dark="#004143", light="#ffffff", border=4, kind="png")
 
         # Convert buffer to Base64 string
         base64_qr = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -199,14 +202,15 @@ class Main:
         if timestamp > 10**10:  # Likely in milliseconds
             timestamp_type = "milliseconds"
             # Use timezone.utc to handle UTC properly
-            human_date = datetime.fromtimestamp(timestamp / 1000, timezone.utc).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            human_date = datetime.fromtimestamp(
+                timestamp / 1000, timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
         else:  # Likely in seconds
             timestamp_type = "seconds"
             # Use timezone.utc to handle UTC properly
-            human_date = datetime.fromtimestamp(
-                timestamp, timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            human_date = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
 
         return {"timestamp_type": timestamp_type, "human_date": human_date}
 
@@ -228,20 +232,21 @@ class Main:
 
         try:
             # Encode JWT with proper error handling
-            token = jwt.encode(
-                data_to_encrypt, private_key, algorithm="HS256")
+            token = jwt.encode(data_to_encrypt, private_key, algorithm="HS256")
             return token
 
         except InvalidKeyError:
             raise ValueError(
-                "Invalid private key. Ensure it is a valid RSA private key.")
+                "Invalid private key. Ensure it is a valid RSA private key."
+            )
 
         except TypeError as e:
             raise ValueError(f"Invalid data format: {str(e)}")
 
         except Exception as e:
             raise ValueError(
-                f"An unexpected error occurred while encoding JWT: {str(e)}")
+                f"An unexpected error occurred while encoding JWT: {str(e)}"
+            )
 
     # in use
     def decode_internal(self, encoded):
@@ -256,25 +261,26 @@ class Main:
 
         try:
             # Decode JWT with proper error handling
-            decoded_payload = jwt.decode(
-                encoded, public_key, algorithms=["HS256"])
+            decoded_payload = jwt.decode(encoded, public_key, algorithms=["HS256"])
             return decoded_payload
 
         except DecodeError:
             raise ValueError(
-                "Invalid JWT format. Ensure the token is complete and correctly structured.")
+                "Invalid JWT format. Ensure the token is complete and correctly structured."
+            )
 
         except ExpiredSignatureError:
-            raise ValueError(
-                "JWT token has expired. Please obtain a new token.")
+            raise ValueError("JWT token has expired. Please obtain a new token.")
 
         except InvalidTokenError:
             raise ValueError(
-                "JWT token is invalid. It may be tampered with or corrupted.")
+                "JWT token is invalid. It may be tampered with or corrupted."
+            )
 
         except Exception as e:
             raise ValueError(
-                f"An unexpected error occurred while decoding JWT: {str(e)}")
+                f"An unexpected error occurred while decoding JWT: {str(e)}"
+            )
 
     # in use
     def encode_data(self, data_to_encrypt):
@@ -293,20 +299,21 @@ class Main:
 
         try:
             # Encode JWT with proper error handling
-            token = jwt.encode(
-                data_to_encrypt, private_key_bytes, algorithm="RS256")
+            token = jwt.encode(data_to_encrypt, private_key_bytes, algorithm="RS256")
             return token
 
         except InvalidKeyError:
             raise ValueError(
-                "Invalid private key. Ensure it is a valid RSA private key.")
+                "Invalid private key. Ensure it is a valid RSA private key."
+            )
 
         except TypeError as e:
             raise ValueError(f"Invalid data format: {str(e)}")
 
         except Exception as e:
             raise ValueError(
-                f"An unexpected error occurred while encoding JWT: {str(e)}")
+                f"An unexpected error occurred while encoding JWT: {str(e)}"
+            )
 
     # in use
     def decode_data(self, encoded):
@@ -325,24 +332,27 @@ class Main:
         try:
             # Decode JWT with proper error handling
             decoded_payload = jwt.decode(
-                encoded, public_key_bytes, algorithms=["RS256"])
+                encoded, public_key_bytes, algorithms=["RS256"]
+            )
             return decoded_payload
 
         except DecodeError:
             raise ValueError(
-                "Invalid JWT format. Ensure the token is complete and correctly structured.")
+                "Invalid JWT format. Ensure the token is complete and correctly structured."
+            )
 
         except ExpiredSignatureError:
-            raise ValueError(
-                "JWT token has expired. Please obtain a new token.")
+            raise ValueError("JWT token has expired. Please obtain a new token.")
 
         except InvalidTokenError:
             raise ValueError(
-                "JWT token is invalid. It may be tampered with or corrupted.")
+                "JWT token is invalid. It may be tampered with or corrupted."
+            )
 
         except Exception as e:
             raise ValueError(
-                f"An unexpected error occurred while decoding JWT: {str(e)}")
+                f"An unexpected error occurred while decoding JWT: {str(e)}"
+            )
 
     # in use
     def get_data_from_dict(self, data={}, path="fixture,status,long"):
@@ -386,7 +396,7 @@ class Main:
         try:
             return json.loads(target)
         except (json.JSONDecodeError, TypeError):
-            print('current convert data to dict ')
+            print("current convert data to dict ")
             return target
 
     # in use
@@ -400,8 +410,7 @@ class Main:
         key = None
         current_millis = self.get_millis()
         ip_control_col_name = "mam_not_logged_in_ip_control"
-        public_saves_reload_time = os.getenv(
-            "all_public_saves_waiting_reload_time")
+        public_saves_reload_time = os.getenv("all_public_saves_waiting_reload_time")
         calls_in_error = int(os.getenv("calls_in_error"))
 
         return_saves = False
@@ -409,23 +418,30 @@ class Main:
         if ip_data is None:
             return "No Id provided"
 
-        ip_data["key"] = ip_data.get("key", self.encode_data({
-            "last_update": current_millis,
-            "calls_in_error": 0,
-            "ipAddress": ip_data["ipAddress"]
-        }))
+        ip_data["key"] = ip_data.get(
+            "key",
+            self.encode_data(
+                {
+                    "last_update": current_millis,
+                    "calls_in_error": 0,
+                    "ipAddress": ip_data["ipAddress"],
+                }
+            ),
+        )
 
         decoded_key = self.decode_data(ip_data["key"])
         get_ip_data = self.get_document(
-            ip_control_col_name, ip_data["ipAddress"], "get_all_public_saves 01")
+            ip_control_col_name, ip_data["ipAddress"], "get_all_public_saves 01"
+        )
 
         # print(f"get_ip_data {get_ip_data}")
 
         if not get_ip_data:
 
             for attempt in range(5):
-                new_doc = self.create_document(ip_control_col_name, ip_data["ipAddress"], {
-                    "data": ip_data["key"]})
+                new_doc = self.create_document(
+                    ip_control_col_name, ip_data["ipAddress"], {"data": ip_data["key"]}
+                )
                 # print(f"new_doc {new_doc}")
 
                 if "created" in new_doc:
@@ -442,14 +458,16 @@ class Main:
 
             can_procces_new_request = self.minutes_after_last_update(
                 # public_saves_reload_time
-                decoded_key["last_update"], current_millis, public_saves_reload_time)
+                decoded_key["last_update"],
+                current_millis,
+                public_saves_reload_time,
+            )
 
             # print(f"\n\ncan_procces_new_request {can_procces_new_request}\n\n")
 
             # return based on time
             if not can_procces_new_request:
-                decoded_key["calls_in_error"] = int(
-                    decoded_key["calls_in_error"]) + 1
+                decoded_key["calls_in_error"] = int(decoded_key["calls_in_error"]) + 1
 
                 # pprint(decoded_key)
 
@@ -461,8 +479,7 @@ class Main:
                     update = self.update_document(
                         ip_control_col_name,
                         ip_data["ipAddress"],
-                        {"data": self.encode_data(decoded_key)}
-
+                        {"data": self.encode_data(decoded_key)},
                     )
                     # print(f"update 01 --->  {update}")
                     return_saves = True
@@ -481,8 +498,7 @@ class Main:
                     update = self.update_document(
                         ip_control_col_name,
                         ip_data["ipAddress"],
-                        {"data": self.encode_data(decoded_key)}
-
+                        {"data": self.encode_data(decoded_key)},
                     )
                     # print(f"update 02 --->  {update}")
                     if "created" in update:
@@ -490,8 +506,7 @@ class Main:
                         break
 
             if decoded_key["ipAddress"] != ip_data["ipAddress"]:
-                decoded_key["calls_in_error"] = int(
-                    decoded_key["calls_in_error"]) + 1
+                decoded_key["calls_in_error"] = int(decoded_key["calls_in_error"]) + 1
 
                 if decoded_key["calls_in_error"] > calls_in_error:
                     return "please reload your webpage id R1"
@@ -508,7 +523,7 @@ class Main:
                     response = self.databases.list_documents(
                         self.db_id,
                         collection,
-                        queries=[Query.limit(limit), Query.offset(offset)]
+                        queries=[Query.limit(limit), Query.offset(offset)],
                     )
 
                     # Extract and parse "data" field
@@ -519,7 +534,8 @@ class Main:
                             documents.append(parsed_data)
                         except json.JSONDecodeError:
                             print(
-                                f"Error 305953159 Skipping invalid JSON in document {doc['$id']}")
+                                f"Error 305953159 Skipping invalid JSON in document {doc['$id']}"
+                            )
 
                     # Stop when we receive fewer than `limit` docs (means no more left)
                     if len(response["documents"]) < limit:
@@ -532,7 +548,8 @@ class Main:
                     break
 
             print(
-                f"Fetched {len(documents)} documents and saved to documents.json\n\n\n")
+                f"Fetched {len(documents)} documents and saved to documents.json\n\n\n"
+            )
 
             documents.insert(0, {"key": ip_data["key"]})
             # pprint(self.decode_data(ip_data["key"]))
@@ -545,7 +562,8 @@ class Main:
             f"collection {collection} \n\t"
             f"document_id {document_id} \n\t"
             # f"data {data}\n\t"
-            f"{'by' if by is not None else ''} {by if by is not None else ''}\n\n")
+            f"{'by' if by is not None else ''} {by if by is not None else ''}\n\n"
+        )
 
         result = None
 
@@ -613,9 +631,7 @@ class Main:
 
         try:
             result = self.tables_db.get_row(
-                database_id=self.db_id,
-                table_id=collection,
-                row_id=document_id
+                database_id=self.db_id, table_id=collection, row_id=document_id
             )
 
             # pprint(result)
@@ -661,14 +677,13 @@ class Main:
 
         try:
             self.tables_db.delete_row(
-                database_id=self.db_id,
-                table_id=collection,
-                row_id=document_id
+                database_id=self.db_id, table_id=collection, row_id=document_id
             )
             return True
         except AppwriteException as e:
             if "Document with the requested ID could not be found" in str(e):
                 return "no found"
+
     # apiFootball ------------------------------------------------------------------------------------------------
 
     # in used
@@ -684,7 +699,8 @@ class Main:
             return "please create an account to access this feature"
 
         current_line_up = self.get_document(
-            "manager_line_ups", str(fixture_id), "getting match line up")
+            "manager_line_ups", str(fixture_id), "getting match line up"
+        )
 
         # print(current_line_up[0])
 
@@ -707,17 +723,20 @@ class Main:
                     line_up = response.json()
 
                     for attempt in range(5):
-                        new_line_up = self.create_document("manager_line_ups", f"{fixture_id}", {
-                            "data": self.make_data_string(line_up)})
+                        new_line_up = self.create_document(
+                            "manager_line_ups",
+                            f"{fixture_id}",
+                            {"data": self.make_data_string(line_up)},
+                        )
 
                         if "created" in new_line_up:
                             return line_up
                         else:
                             time.sleep(0.5)
                 else:
-                    return ("Data will be ready 2 hours before the game.")
+                    return "Data will be ready 2 hours before the game."
             else:
-                return (f"Error: {response.status_code}, {response.text}")
+                return f"Error: {response.status_code}, {response.text}"
 
         else:
 
@@ -738,7 +757,10 @@ class Main:
             else:
                 time.sleep(1)
 
-        return {"error": "Failed to fetch standings", "status_code": response.status_code}
+        return {
+            "error": "Failed to fetch standings",
+            "status_code": response.status_code,
+        }
 
     # in used
     def get_next_round(self, league_id=2, teams_len=20):
@@ -748,7 +770,8 @@ class Main:
             league_id = re.sub(r"\D", "", league_id)
 
         print(
-            f"getting next round games for second time {league_id} and len {teams_len}")
+            f"getting next round games for second time {league_id} and len {teams_len}"
+        )
 
         url = f"{self.api_url}fixtures?league={league_id}&next={teams_len + (teams_len // 2)}"
         headers = {"x-apisports-key": self.football_api_key}
@@ -757,39 +780,28 @@ class Main:
 
         if response.status_code != 200:
             print(
-                f"Error: Unable to fetch leagues. Status code: {response.status_code}")
+                f"Error: Unable to fetch leagues. Status code: {response.status_code}"
+            )
             print(f"Response: {response.text}")
 
             # If we've reached this point, return the default dict
             return {
                 "future": {
                     "get": "fixtures",
-                    "parameters": {
-                        "team": f"NR{league_id}",
-                        "next": 1
-                    },
+                    "parameters": {"team": f"NR{league_id}", "next": 1},
                     "errors": [],
                     "results": 1,
-                    "paging": {
-                        "current": 1,
-                        "total": 1
-                    },
-                    "response": []
+                    "paging": {"current": 1, "total": 1},
+                    "response": [],
                 },
                 "past": {
                     "get": "fixtures",
-                    "parameters": {
-                        "team": f"NR{league_id}",
-                        "next": 1
-                    },
+                    "parameters": {"team": f"NR{league_id}", "next": 1},
                     "errors": [],
                     "results": 0,
-                    "paging": {
-                        "current": 1,
-                        "total": 1
-                    },
-                    "response": []
-                }
+                    "paging": {"current": 1, "total": 1},
+                    "response": [],
+                },
             }
 
         data = response.json()
@@ -806,32 +818,20 @@ class Main:
         return {
             "future": {
                 "get": "fixtures",
-                "parameters": {
-                    "team": f"NR{league_id}",
-                    "next": f"{mid_point}"
-                },
+                "parameters": {"team": f"NR{league_id}", "next": f"{mid_point}"},
                 "errors": [],
-                "results": mid_point*2,
-                "paging": {
-                    "current": 1,
-                    "total": 1
-                },
-                "response": data["response"]
+                "results": mid_point * 2,
+                "paging": {"current": 1, "total": 1},
+                "response": data["response"],
             },
             "past": {
                 "get": "fixtures",
-                "parameters": {
-                    "team": f"NR{league_id}",
-                    "next": f"{mid_point}"
-                },
+                "parameters": {"team": f"NR{league_id}", "next": f"{mid_point}"},
                 "errors": [],
                 "results": 0,
-                "paging": {
-                    "current": 1,
-                    "total": 1
-                },
-                "response": []
-            }
+                "paging": {"current": 1, "total": 1},
+                "response": [],
+            },
         }
 
     def get_leagues_by_country(self):
@@ -879,7 +879,8 @@ class Main:
                 "id": league_data["league"]["id"],
                 "name": league_data["league"]["name"],
                 "league_img": league_data["league"]["logo"],
-                "contry_img": league_data["country"].get("flag") or "https://sistemasintegradosao.com/assets/img/siaoLogos/logoX512.png",
+                "contry_img": league_data["country"].get("flag")
+                or "https://sistemasintegradosao.com/assets/img/siaoLogos/logoX512.png",
             }
             leagues_by_country[country_name].append(league_info)
 
@@ -902,9 +903,10 @@ class Main:
         world_leagues = leagues_by_country.get("World", [])
         fifa_holder = ["Fifa"]
         for league in world_leagues:
-            if league["name"] in ["Friendlies", ]:
-                league.update(
-                    {"name": "FIFA", "contry_img": league["league_img"]})
+            if league["name"] in [
+                "Friendlies",
+            ]:
+                league.update({"name": "FIFA", "contry_img": league["league_img"]})
                 sorted_data.insert(0, ["Friendlies", league])
 
             elif league["name"] == "UEFA Europa League":
@@ -949,7 +951,8 @@ class Main:
             if "response" in data:
                 # Sort the 'response' field by team name
                 data["response"] = sorted(
-                    data["response"], key=lambda x: x["team"]["name"])
+                    data["response"], key=lambda x: x["team"]["name"]
+                )
 
                 return data
             else:
@@ -993,7 +996,8 @@ class Main:
         response_past = None
         for attempt in range(5):
             response_past = requests.get(
-                url, headers=headers, params=params_past).json()
+                url, headers=headers, params=params_past
+            ).json()
             if "response" in response_past:
                 break
             print(
@@ -1011,8 +1015,7 @@ class Main:
             ).json()
             if "response" in response_future:
                 break
-            print(
-                f"Attempt {attempt + 1} (future fixtures): Retrying in 1 second...")
+            print(f"Attempt {attempt + 1} (future fixtures): Retrying in 1 second...")
             time.sleep(1)
         if "response" not in response_future:
             return {"error": "Failed to fetch future fixtures after 5 attempts."}
@@ -1046,11 +1049,9 @@ class Main:
 
         # Reorder the response field if it exists
         if "response" in response_past:
-            response_past["response"] = reorder_fixtures(
-                response_past["response"])
+            response_past["response"] = reorder_fixtures(response_past["response"])
         if "response" in response_future:
-            response_future["response"] = reorder_fixtures(
-                response_future["response"])
+            response_future["response"] = reorder_fixtures(response_future["response"])
 
         # Check if the first fixture in response_past is live
         if (
@@ -1082,9 +1083,12 @@ class Main:
 
         # Fetch today's games only once
         to_play_games = self.get_document(
-            "mam_today_games_results", "today_results", "update_live_game 01")
-        to_play_games_dict = {str(self.get_data_from_dict(
-            fx, "fixture,id")): fx for fx in to_play_games[0]}
+            "mam_today_games_results", "today_results", "update_live_game 01"
+        )
+        to_play_games_dict = {
+            str(self.get_data_from_dict(fx, "fixture,id")): fx
+            for fx in to_play_games[0]
+        }
         update_next_game_data = False
 
         # pprint(to_play_games_dict)
@@ -1186,12 +1190,12 @@ class Main:
             current_league_id = re.sub(r"\D", "", nr_league_id)
             teams_len = int(data["teams_len"])
 
-            print(
-                f"\n\nGetting next games wit jwtToken for {current_league_id}")
+            print(f"\n\nGetting next games wit jwtToken for {current_league_id}")
 
             next_games_internal_id = f"next_games_team_{nr_league_id}"
-            team = self.get_document(self.next_games_collection_id,
-                                     next_games_internal_id, "get_ng 01")
+            team = self.get_document(
+                self.next_games_collection_id, next_games_internal_id, "get_ng 01"
+            )
             print(f"team gotten at get next games with jwt: \n{team}")
 
             if not team:
@@ -1206,7 +1210,8 @@ class Main:
                 print(f"new_request {new_request}")
                 if not len(new_request["future"]["response"]):
                     print(
-                        "there is not len---------------------------------------------CC")
+                        "there is not len---------------------------------------------CC"
+                    )
                     team[1] = today
                     team[0] = new_request
 
@@ -1215,11 +1220,15 @@ class Main:
 
         if not jwt_process:
             print("JWT was not processed ....................CC")
-            team = self.get_document(self.next_games_collection_id,
-                                     next_games_internal_id, "get_ng 02") if team is None else team
+            team = (
+                self.get_document(
+                    self.next_games_collection_id, next_games_internal_id, "get_ng 02"
+                )
+                if team is None
+                else team
+            )
 
-        print(
-            f"\n\ngame gotten for today {today} {today, team[1] if team else team}")
+        print(f"\n\ngame gotten for today {today} {today, team[1] if team else team}")
 
         if not team or (today != team[1]):
 
@@ -1238,7 +1247,8 @@ class Main:
                     data={
                         "data": self.make_data_string(ng),
                         "today": today,
-                        "counter": 1},
+                        "counter": 1,
+                    },
                 )
 
                 if (
@@ -1269,7 +1279,7 @@ class Main:
                         document_id=next_games_internal_id,
                         data={
                             "data": self.make_data_string(ng),
-                            "counter": team[2] + 1
+                            "counter": team[2] + 1,
                         },
                     )
 
@@ -1285,16 +1295,13 @@ class Main:
             updated_doc = self.update_document(
                 collection=self.next_games_collection_id,
                 document_id=next_games_internal_id,
-                data={
-                    "data": self.make_data_string(ng),
-                    "counter": team[2] + 1
-                },
-                by="ng with getting data internally "
+                data={"data": self.make_data_string(ng), "counter": team[2] + 1},
+                by="ng with getting data internally ",
             )
 
             print(f"updated_doc with getting data internally:  {updated_doc}")
 
-            if "error" in updated_doc and updated_doc["error"] == 'Document not found':
+            if "error" in updated_doc and updated_doc["error"] == "Document not found":
 
                 self.create_document(
                     collection=self.next_games_collection_id,
@@ -1302,7 +1309,8 @@ class Main:
                     data={
                         "data": self.make_data_string(team[0]),
                         "today": today,
-                        "counter": 1},
+                        "counter": 1,
+                    },
                 )
             return ng
 
@@ -1322,7 +1330,8 @@ class Main:
 
         league_internal_id = f"mam_league_{league_id}"
         team = self.get_document(
-            self.get_teams_in_league_collection_id, league_internal_id)
+            self.get_teams_in_league_collection_id, league_internal_id
+        )
         today = self.get_today()
 
         print(f"league_internal_id: {league_internal_id}\ntoday: {today}")
@@ -1336,8 +1345,7 @@ class Main:
                 # pprint(tol)
                 # print(f"\n\n\n\n\n\n")
 
-                team_ids = [str(team["team"]["id"])
-                            for team in tol["response"]]
+                team_ids = [str(team["team"]["id"]) for team in tol["response"]]
                 list_team_ids = "-".join(team_ids)
                 tol["team_ids"] = list_team_ids
 
@@ -1346,8 +1354,11 @@ class Main:
                     cd = self.create_document(
                         collection=self.get_teams_in_league_collection_id,
                         document_id=league_internal_id,
-                        data={"data": self.make_data_string(
-                            tol), "today": today, "counter": 1},
+                        data={
+                            "data": self.make_data_string(tol),
+                            "today": today,
+                            "counter": 1,
+                        },
                     )
                     if (
                         cd
@@ -1429,15 +1440,13 @@ class Main:
         characters = chars
 
         # Generate unique ID
-        option_id = "3" + "".join(random.choice(characters)
-                                  for _ in range(length))
+        option_id = "3" + "".join(random.choice(characters) for _ in range(length))
 
         if _for == "login":
             print(f"Checking IDs... {option_id}")
             record_id = "676ae6120020af401e9e"
             while self.is_duplicate_id(option_id, mam_current_account_ids, record_id):
-                option_id = "".join(random.choice(characters)
-                                    for _ in range(length))
+                option_id = "".join(random.choice(characters) for _ in range(length))
 
         # elif _for == "saves":
         #     print("Checking save IDs...")
@@ -1459,10 +1468,8 @@ class Main:
         c = self.update_document(col, doc, data)
 
     # in used
-    def create_manager_ai_account(self, data={
-            "email": "test01.jandres@gmail.com",
-            "password": "password"
-        }
+    def create_manager_ai_account(
+        self, data={"email": "test01.jandres@gmail.com", "password": "password"}
     ):
         """
 
@@ -1484,18 +1491,21 @@ class Main:
         mam_account_ids = "676ae5b10035cb473e22"
         mam_account_doc = "676ae6120020af401e9e"
 
-        data_to_send = {"data": self.make_data_string({
-            "password": data["password"],
-            "email": data["email"],
-            "account_id": account_id_created,
-            "account_type": "free",
-            "expiration_date": False,
-            "account_freeze": False,
-            "payment_history": []
-        })}
+        data_to_send = {
+            "data": self.make_data_string(
+                {
+                    "password": data["password"],
+                    "email": data["email"],
+                    "account_id": account_id_created,
+                    "account_type": "free",
+                    "expiration_date": False,
+                    "account_freeze": False,
+                    "payment_history": [],
+                }
+            )
+        }
 
-        create_login = self.create_document(
-            "manager_login", email_id, data_to_send)
+        create_login = self.create_document("manager_login", email_id, data_to_send)
 
         print("\n\n\n----------------------------------------\n\n")
         pprint(create_login)
@@ -1508,22 +1518,22 @@ class Main:
         )
 
         if isinstance(create_login, dict):
-            self.update_ids(mam_account_ids, mam_account_doc,
-                            account_id_created)
+            self.update_ids(mam_account_ids, mam_account_doc, account_id_created)
 
         return msg
 
     # in used
-    def login_to_manager_ai_account(self, data={
+    def login_to_manager_ai_account(
+        self,
+        data={
             "email": "test01.jandres@gmail.com",
             "password": "password",
-        }
+        },
     ):
 
         account = None
 
-        account = self.get_document(
-            "manager_login", self.at_id(data["email"]))
+        account = self.get_document("manager_login", self.at_id(data["email"]))
 
         if not account:
             return "Invalid Email address"
@@ -1535,8 +1545,14 @@ class Main:
         if account["password"] != data["password"]:
             return "Invalid Password"
 
-        d = ["account_id", "account_type", "expiration_date",
-             "account_freeze", "payment_history", "password"]
+        d = [
+            "account_id",
+            "account_type",
+            "expiration_date",
+            "account_freeze",
+            "payment_history",
+            "password",
+        ]
         for i in d:
             del account[i]
 
@@ -1550,8 +1566,7 @@ class Main:
         return {
             "managerPlanName": managerPlanName,
             "managerPlanPrice": managerPlanPrice,
-            "managerDescriptions": managerDescriptions
-
+            "managerDescriptions": managerDescriptions,
         }
 
     def deposit_list(self, token=None):
@@ -1570,7 +1585,7 @@ class Main:
         # Remove any leading/trailing spaces
         deposit_list = [item.strip() for item in deposit_list]
 
-        return (deposit_list)  # Output: ['USDT - Tron', 'BTC - Lightning']
+        return deposit_list  # Output: ['USDT - Tron', 'BTC - Lightning']
 
     def get_manager_lightning_address(self, amount, token, name):
 
@@ -1600,12 +1615,9 @@ class Main:
             return {
                 "code": 200,
                 "status": "PAID",
-                "Balance": f"{status['amount']['amount']} {status['amount']['currency']}"
+                "Balance": f"{status['amount']['amount']} {status['amount']['currency']}",
             }
-        return {
-            "code": 200,
-            "status": "UNPAID"
-        }
+        return {"code": 200, "status": "UNPAID"}
 
     def convert_to_milliseconds(self, timestamp, by=None):
         """
@@ -1656,7 +1668,7 @@ class Main:
 
     def minutes_after_last_update(self, first_millis, second_millis, seconds=60):
         """
-        Calculate whether a certain number of seconds have 
+        Calculate whether a certain number of seconds have
         passed between two timestamps in milliseconds.
 
         Args:
@@ -1670,12 +1682,10 @@ class Main:
 
         # Ensure inputs are integers
         first_millis = int(
-            self.convert_to_milliseconds(
-                first_millis, "minutes_after_last_update 01")
+            self.convert_to_milliseconds(first_millis, "minutes_after_last_update 01")
         )
         second_millis = int(
-            self.convert_to_milliseconds(
-                second_millis, "minutes_after_last_update 02")
+            self.convert_to_milliseconds(second_millis, "minutes_after_last_update 02")
         )
 
         # Calculate the difference in milliseconds
@@ -1704,8 +1714,7 @@ class Main:
         """
         print(f"\n\n***************** > updating games for {for_date}\n\n")
 
-        current_data = self.get_document(
-            "mam_today_games_results", "today_results")
+        current_data = self.get_document("mam_today_games_results", "today_results")
 
         for i in range(len(current_data)):
             print(f"update id {i} {current_data[i]}")
@@ -1720,7 +1729,10 @@ class Main:
             f"current_millis : {current_millis}"
         )
 
-        if self.minutes_after_last_update(last_update, current_millis, 1) or liveRequest:
+        if (
+            self.minutes_after_last_update(last_update, current_millis, 1)
+            or liveRequest
+        ):
             url = f"{self.api_url}fixtures"
             headers = {
                 "x-rapidapi-host": "v3.football.api-sports.io",
@@ -1732,8 +1744,7 @@ class Main:
             retries = 5
             while retries > 0:
                 try:
-                    response = requests.get(
-                        url, headers=headers, params=params).json()
+                    response = requests.get(url, headers=headers, params=params).json()
                     if "response" in response:
                         break
                 except Exception as e:
@@ -1744,12 +1755,14 @@ class Main:
 
             if not response or "response" not in response:
                 print(
-                    f"Error: Unable to fetch games for {for_date} after multiple attempts.")
+                    f"Error: Unable to fetch games for {for_date} after multiple attempts."
+                )
                 return []
 
             game_data = response["response"]
-            indexes = {str(game["fixture"]["id"]): idx for idx,
-                       game in enumerate(game_data)}
+            indexes = {
+                str(game["fixture"]["id"]): idx for idx, game in enumerate(game_data)
+            }
             game_ids = list(indexes.keys())
 
             if printRecords:
@@ -1776,8 +1789,9 @@ class Main:
         today_games = self.fetch_games(today, liveRequest, printRecords)
         merged_games = today_games
 
-        indexes = {str(game["fixture"]["id"]): idx for idx,
-                   game in enumerate(merged_games)}
+        indexes = {
+            str(game["fixture"]["id"]): idx for idx, game in enumerate(merged_games)
+        }
         game_ids = list(indexes.keys())
 
         self.update_document(
@@ -1788,7 +1802,7 @@ class Main:
                 "last_update": str(self.get_today()),
                 "ids": self.make_data_string(game_ids),
                 "indexes": self.make_data_string(indexes),
-                "last_update_date": self.make_data_string(self.get_millis())
+                "last_update_date": self.make_data_string(self.get_millis()),
             },
         )
 
@@ -1821,10 +1835,7 @@ def today_games():
 
 
 def create_manager_ai_account(
-    data={
-        "email": "test01.jandres@gmail.com",
-        "password": "password"
-    }
+    data={"email": "test01.jandres@gmail.com", "password": "password"}
 ):
 
     api = Main()
@@ -1863,7 +1874,9 @@ def get_price_plans_and_names():
 
 
 # Removed incomplete function definition
-def send_manager_reset_password_link(email_to, email_body, subject, replacements, my_sender):
+def send_manager_reset_password_link(
+    email_to, email_body, subject, replacements, my_sender
+):
     """
 
     send_email(
@@ -1893,7 +1906,7 @@ def send_manager_reset_password_link(email_to, email_body, subject, replacements
             email_body=email_body,
             subject=subject,
             replacements=replacements,
-            my_sender=my_sender
+            my_sender=my_sender,
         )
         return response
     except Exception as e:

@@ -1,5 +1,4 @@
 import os
-from PIL import Image
 import requests
 import re
 import json
@@ -246,9 +245,7 @@ def get_live_matches(api_key):
     headers = {
         "x-apisports-key": api_key,
     }
-    params = {
-        "live": "all"   # tells API-Football to return all live matches
-    }
+    params = {"live": "all"}  # tells API-Football to return all live matches
 
     try:
         response = requests.get(url, headers=headers, params=params)
@@ -273,9 +270,7 @@ def get_live_matches(api_key):
 
 def save_picker_text():
     url = "https://66d8eaff7f146a2c2ab3.appwrite.global/v1/functions/66d8eafc002b0ee3af95/executions"
-    headers = {
-        "Content-Type": "application/json"
-    }
+    headers = {"Content-Type": "application/json"}
 
     data = {
         "update": "save_piker_text",
@@ -284,7 +279,7 @@ def save_picker_text():
         "collection": "3MMX72FR1K5EDNW7IR4JQ326VXKUMD455QGXY5L64NB3YQJ1LH",
         "email": "eggsteban@gmail.com",
         "text": "text 02",
-        "status": "new"
+        "status": "new",
     }
 
     r = requests.post(url, headers=headers, json=data)
@@ -304,9 +299,7 @@ def save_picker_text():
 
 def get_piker_account_by_target():
     url = "https://66d8eaff7f146a2c2ab3.appwrite.global/v1/functions/66d8eafc002b0ee3af95/executions"
-    headers = {
-        "Content-Type": "application/json"
-    }
+    headers = {"Content-Type": "application/json"}
 
     data = {
         "update": "get_piker_account_by_target",
@@ -314,7 +307,7 @@ def get_piker_account_by_target():
         "document_id": "UYRP5H7G7B9WDQVSSNT1J2J770OLCC4DAGGIMMW3F0PJDCRL8A",
         "collection": "3MMX72FR1K5EDNW7IR4JQ326VXKUMD455QGXY5L64NB3YQJ1LH",
         "id": "eggsteban@gmail.com",
-        "password": None
+        "password": None,
     }
 
     r = requests.post(url, headers=headers, json=data)
@@ -332,30 +325,6 @@ def get_piker_account_by_target():
 # get_piker_account_by_target()
 
 
-def png_to_white(input_path, output_path):
-    """
-    Convert all visible pixels in a PNG to white,
-    preserving transparency.
-    """
-    img = Image.open(input_path).convert("RGBA")
-    pixels = img.load()
-
-    width, height = img.size
-
-    for y in range(height):
-        for x in range(width):
-            r, g, b, a = pixels[x, y]
-
-            # Only modify visible pixels
-            if a != 0:
-                pixels[x, y] = (255, 255, 255, a)
-
-    img.save(output_path, format="PNG")
-
-
-# png_to_white("logo03.png", "logo03_white.png")
-
-
 def print_tree(start_path=".", prefix=""):
     items = sorted(os.listdir(start_path))
 
@@ -370,7 +339,7 @@ def print_tree(start_path=".", prefix=""):
             print_tree(path, prefix + extension)
 
 
-# print(print_tree())
+print(print_tree())
 
 
 # with open("function/requirements.txt", "w", encoding="utf-8") as f:
