@@ -10,6 +10,11 @@ def main(context):
     context.log(f"Function executed with the following context:")
     context.log(f"\n\tReceived request method: {context.req.method}")
     data = context.req.body
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except:
+            data = {}
 
     def create_response(data, status=200):
         response_body = json.dumps(data)

@@ -224,14 +224,27 @@ def common_load_tables(target="tables"):
     Returns either TablesDB or Databases service based on target.
     """
     client = Client()
-    client.set_endpoint(os.getenv("appwrite_end_point"))
-    client.set_project(os.getenv("project_name"))
-    client.set_key(os.getenv("app_key"))
+    
+    # Use Appwrite Cloud variables first, then fallback to your local names
+    endpoint = os.getenv("APPWRITE_FUNCTION_ENDPOINT") or os.getenv("appwrite_end_point")
+    project = os.getenv("APPWRITE_FUNCTION_PROJECT_ID") or os.getenv("project_name")
+    api_key = os.getenv("APPWRITE_FUNCTION_API_KEY") or os.getenv("app_key")
+
+    if not endpoint or not project:
+        print("[CRITICAL] Missing Appwrite Endpoint or Project ID")
+
+    client.set_endpoint(endpoint)
+    client.set_project(project)
+    
+    if api_key:
+        client.set_key(api_key)
+    else:
+        # This is why you get the 401 error
+        print("[WARNING] No API Key found! Acting as Guest.")
 
     if target == "tables":
         return TablesDB(client)
 
-    # ADD THIS BLOCK
     if target == "databases":
         return Databases(client)
 
