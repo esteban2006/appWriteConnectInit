@@ -163,3 +163,4 @@ cython_debug/
 .appwrite
 allStuff.txt
 src/appWriteConnectInit.code-workspace
+/srcSrc

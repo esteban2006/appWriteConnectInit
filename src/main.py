@@ -45,16 +45,22 @@ def main(context):
         client_ip = "Unknown IP"
 
         try:
-            # Get client IP from headers
-            client_ip = context.req.headers.get(
-                "x-forwarded-for", "Unknown IP")
+            # 1. Check for Appwrite specific header first, then fallback to x-forwarded-for
+            client_ip = context.req.headers.get("x-appwrite-client-ip") or \
+                        context.req.headers.get("x-forwarded-for") or \
+                        "Unknown IP"
+
             client_ip = client_ip.split(",")[0].strip()
+
+            # Log it so you can see it in the Appwrite Console Logs
+            context.log(f"Detected IP: {client_ip}")
 
             # Directly use context.req.body if it's already a dictionary
             data = context.req.body
 
+            # Change "i" to something descriptive so you don't get confused again
             if client_ip == "Unknown IP":
-                return create_response({"error": "i"}, 900)
+                return create_response({"error": "ip_not_found"}, 900)
 
             else:
                 data["ip"] = client_ip.replace(":", ".")

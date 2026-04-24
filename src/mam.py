@@ -1879,6 +1879,7 @@ class Main:
         except AppwriteException as e:
             print(f"Appwrite Error: {str(e)}")
             return False
+    
     def delete_document(self, collection="xxx", document_id=None):
 
         try:

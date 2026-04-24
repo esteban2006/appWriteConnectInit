@@ -6,15 +6,15 @@ import random
 import string
 from datetime import datetime
 from pprint import pprint
-from appwrite.client import Client
-from appwrite.services.databases import Databases  # Import the Databases class
-from appwrite.services.account import Account
-from appwrite.exception import AppwriteException
+# from appwrite.client import Client
+# from appwrite.services.databases import Databases  # Import the Databases class
+# from appwrite.services.account import Account
+# from appwrite.exception import AppwriteException
 
 
 def test_mam():
 
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -54,7 +54,7 @@ def get_ip_details():
 
 
 def login():
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -74,7 +74,7 @@ def login():
 
 
 def create_account():
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     user = "creation1"
@@ -102,7 +102,7 @@ def get_world_list():
 
     print("sending get_world_list")
 
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -117,11 +117,11 @@ def get_world_list():
     pprint(response)
 
 
-# print(get_world_list())
+print(get_world_list())
 
 
 def update_favs():
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -143,7 +143,7 @@ def update_favs():
 
 
 def get_next_games():
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -196,7 +196,7 @@ def ccPyament():
 
 
 def cc_status():
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
@@ -216,7 +216,7 @@ def cc_status():
 
 
 def getTeamName(teamId):
-    url = "https://66d8eaff7f146a2c2ab3.appwrite.global//v1/functions/66d8eafc002b0ee3af95/executions"
+    url = "https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
     headers = {"Content-Type": "application/json"}
 
     data = {
