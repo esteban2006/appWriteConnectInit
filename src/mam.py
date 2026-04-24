@@ -7,9 +7,9 @@ from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
 from jwt.exceptions import InvalidKeyError
 # from main_helpers import print_centered_banner
 import segno
-# from tronpy import Tron
-# from tronpy.providers import HTTPProvider
-# from tronpy.keys import PrivateKey
+from tronpy import Tron
+from tronpy.providers import HTTPProvider
+from tronpy.keys import PrivateKey
 import base58
 import base64
 from ast import ClassDef
@@ -131,8 +131,8 @@ class Main:
 
         # wallet -------------------------------------------------------
 
-        # self.client = Tron(HTTPProvider(api_key=os.getenv("tron_api_one")))
-        # self.client = Tron()
+        self.client = Tron(HTTPProvider(api_key=os.getenv("tron_api_one")))
+        self.client = Tron()
         self.USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
         self.API_URL_BASE = 'https://api.trongrid.io/'
         self.METHOD_BALANCE_OF = 'balanceOf(address)'

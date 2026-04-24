@@ -379,36 +379,47 @@ def common_get_record(
 
     try:
         db_id = os.getenv("db_id")
+        endpoint = os.getenv("appwrite_end_point")
+        project = os.getenv("project_name")
+        key = os.getenv("app_key")
 
-        if not db_id:
-            raise ValueError("Missing environment variable: db_id")
+        if not all([db_id, endpoint, project, key]):
+            print("[ERROR] One or more Environment Variables are missing (db_id, endpoint, project, or app_key)")
+            return None
 
         client = Client()
-        client.set_endpoint(os.getenv("appwrite_end_point"))
-        client.set_project(os.getenv("project_name"))
-        client.set_key(os.getenv("app_key"))
+        client.set_endpoint(endpoint)
+        client.set_project(project)
+        client.set_key(key)
 
         databases = Databases(client)
 
-        # 🔥 USE get_document INSTEAD
+        # Fetch the document
         result = databases.get_document(
             database_id=db_id,
             collection_id=table_id,
             document_id=row_id
         )
 
-        print("FINAL RESULT:", result)
-
-        return result
+        if result:
+            # CRITICAL FIX: 
+            # Appwrite SDK returns a 'Document' object, not a dict.
+            # Converting it to dict() allows the rest of your code to use .get()
+            return dict(result)
+        
+        return None
 
     except AppwriteException as e:
-        print(f"[Appwrite ERROR] {e.message} (code: {e.code})")
+        # Document not found is a common "error" we want to handle gracefully
+        if e.code == 404:
+            print(f"[common_get_record] Document {row_id} not found in {table_id}")
+        else:
+            print(f"[Appwrite ERROR] {e.message} (code: {e.code})")
         return None
 
     except Exception as e:
-        print(f"[GENERAL ERROR] {str(e)}")
+        print(f"[GENERAL ERROR] in common_get_record: {str(e)}")
         return None
-
 
 if __name__ == "__main__":
     pass
