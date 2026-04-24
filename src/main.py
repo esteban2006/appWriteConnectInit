@@ -43,33 +43,38 @@ def main(context):
     if context.req.method == "POST":
         client_ip = "Unknown IP"
 
-        try:
-            # 1. Improved IP detection for Appwrite Cloud
-            client_ip = context.req.headers.get("x-appwrite-client-ip") or \
-                        context.req.headers.get("x-forwarded-for", "Unknown IP")
-            client_ip = client_ip.split(",")[0].strip()
+        def main(context):
+            try:
+                # Get IP
+                client_ip = context.req.headers.get("x-appwrite-client-ip") or \
+                            context.req.headers.get("x-forwarded-for", "Unknown IP")
+                client_ip = client_ip.split(",")[0].strip()
 
-            # 2. FIX: Safely parse the body if it is a string
-            data = context.req.body
-            if isinstance(data, str):
-                try:
-                    data = json.loads(data)
-                except Exception as json_err:
-                    context.error(f"Failed to parse JSON: {json_err}")
-                    return create_response({"error": "Invalid JSON string"}, 400)
+                # Parse Body
+                raw_body = context.req.body
+                
+                if not raw_body:
+                    return create_response({"error": "Empty body received"}, 400)
 
-            # 3. Now this assignment will work because 'data' is a dict
-            if client_ip == "Unknown IP":
-                # Changed from "i" to "ip_missing" for easier debugging
-                return create_response({"error": "ip_missing"}, 900)
-            else:
+                # Handle string vs dict
+                if isinstance(raw_body, str):
+                    try:
+                        data = json.loads(raw_body)
+                    except json.JSONDecodeError:
+                        # Log what we actually received to help debug
+                        context.error(f"Received invalid JSON string: {raw_body}")
+                        return create_response({"error": "Invalid JSON string format"}, 400)
+                else:
+                    data = raw_body
+
+                # Now proceed with your logic
                 data["ip"] = client_ip.replace(":", ".")
+                
+                context.log(f"Processing request for IP: {client_ip}")
 
-            context.log(f"Processing request for IP: {client_ip}")
-
-        except Exception as e:
-            context.error(f"Error reading request body: {e}")
-            return create_response({"error": "Body parsing failed", "details": str(e)}, 400)
+            except Exception as e:
+                context.error(f"Crash: {str(e)}")
+                return create_response({"error": "Server crash", "details": str(e)}, 500)
 
         # Check if all required keys are present
         # Check if all required keys are present and have non-empty values
