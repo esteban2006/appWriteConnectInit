@@ -41,38 +41,35 @@ def main(context):
         return client_ip == request_ip
 
     if context.req.method == "POST":
-
         client_ip = "Unknown IP"
 
         try:
-            # 1. Check for Appwrite specific header first, then fallback to x-forwarded-for
+            # 1. Improved IP detection for Appwrite Cloud
             client_ip = context.req.headers.get("x-appwrite-client-ip") or \
-                        context.req.headers.get("x-forwarded-for") or \
-                        "Unknown IP"
-
+                        context.req.headers.get("x-forwarded-for", "Unknown IP")
             client_ip = client_ip.split(",")[0].strip()
 
-            # Log it so you can see it in the Appwrite Console Logs
-            context.log(f"Detected IP: {client_ip}")
-
-            # Directly use context.req.body if it's already a dictionary
+            # 2. FIX: Safely parse the body if it is a string
             data = context.req.body
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except Exception as json_err:
+                    context.error(f"Failed to parse JSON: {json_err}")
+                    return create_response({"error": "Invalid JSON string"}, 400)
 
-            # Change "i" to something descriptive so you don't get confused again
+            # 3. Now this assignment will work because 'data' is a dict
             if client_ip == "Unknown IP":
-                return create_response({"error": "ip_not_found"}, 900)
-
+                # Changed from "i" to "ip_missing" for easier debugging
+                return create_response({"error": "ip_missing"}, 900)
             else:
                 data["ip"] = client_ip.replace(":", ".")
 
-            print(f"\nReceived Data from IP \n\t{client_ip}: ")
-            pprint(data)
-            context.log(f"\nClient IP: \n\t{client_ip}")
-            context.log(f"Update: \n\t{data.get('update', 'N/A')}")
+            context.log(f"Processing request for IP: {client_ip}")
 
         except Exception as e:
             context.error(f"Error reading request body: {e}")
-            return create_response({"error": "Error reading request body"}, 400)
+            return create_response({"error": "Body parsing failed", "details": str(e)}, 400)
 
         # Check if all required keys are present
         # Check if all required keys are present and have non-empty values
