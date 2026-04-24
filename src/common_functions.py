@@ -1,15 +1,62 @@
-# from encodings.punycode import T
-# from turtle import update
-# from winreg import OpenKey
+"""
+===============================================================================
+File: common_functions.py
+Author: Esteban Gilberto Gutierrez Jandres
+Developer: Eggsteban Jandres
+Created: 2026-03-20
 
+Description:
+This module contains common utility and helper functions shared
+across different parts of the application.
+===============================================================================
 
-from typing import Optional, Dict, Any
+CONFIDENTIALITY NOTICE
+
+This file and the source code contained herein are confidential and
+proprietary information belonging to Esteban Gilberto Gutierrez Jandres. The contents
+of this file are intended solely for authorized use within the
+associated software system.
+
+Unauthorized access, copying, disclosure, distribution, modification,
+or use of this file, in whole or in part, is strictly prohibited
+without the prior written consent of the author.
+
+AUTHORSHIP
+
+This software module was originally designed and implemented by
+Esteban Gilberto Gutierrez Jandres. Any modifications or derivative works must retain
+this authorship notice unless explicitly authorized by the author.
+
+INTELLECTUAL PROPERTY
+
+All intellectual property rights related to the structure, design,
+algorithms, and implementation contained in this file remain the
+exclusive property of Esteban Gilberto Gutierrez Jandres and are protected under
+applicable copyright and intellectual property laws.
+
+USAGE RESTRICTIONS
+
+This code is provided for use only within the intended application
+environment. It may not be redistributed, sublicensed, or integrated
+into other software systems without explicit written permission from
+the author.
+
+DISCLAIMER
+
+This software is provided "as is", without warranty of any kind,
+express or implied, including but not limited to warranties of
+merchantability or fitness for a particular purpose.
+
+Copyright (c) 2026 Esteban Gilberto Gutierrez Jandres
+All rights reserved.
+===============================================================================
+"""
+
+import base64
+import hmac
+import hashlib
+import secrets
 from base64 import encode
-from plistlib import load
-from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
-from jwt.exceptions import InvalidKeyError
-
-
 import re
 import json
 import random
@@ -25,6 +72,7 @@ import requests
 from pprint import pprint
 from pprint import pformat
 from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, Any
 from appwrite.services.tables_db import TablesDB
 from appwrite.client import Client
 from appwrite.services.databases import Databases  # Import the Databases class
@@ -33,36 +81,206 @@ from appwrite.exception import AppwriteException
 from appwrite.id import ID
 from appwrite.query import Query
 
-env_loaded = os.getenv("tron_api_one")
+from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
+from jwt.exceptions import InvalidKeyError
 
 
-if os.getenv("secret_jwt") is None:
-    env_file_path = '.env'
+if not os.getenv("appwrite_end_point"):
+    try:
+        from dotenv import load_dotenv
 
-    with open(env_file_path, 'r') as file:
-        for line in file:
-            if line.strip() and not line.startswith('#'):
-                key, value = line.strip().split('=', 1)
-                os.environ[key] = value
+        load_dotenv()
+    except ImportError:
+        pass
 
-# NOW read it
-env_loaded = os.getenv("tron_api_one")
+env_loading_key = "secret_jwt"
+env_loaded = os.getenv(env_loading_key)
+# print(f"env_loaded at common functions {type(env_loaded)}")
+
+
+def common_check_rate_limit(
+    ip: str, action: str, window_seconds: int = 60
+) -> tuple[bool, str]:
+
+    table_id = os.getenv("RATE_LIMIT_COLLECTION_ID")
+
+    print(f"\n[RATE LIMIT] Start check------------------------------")
+    print(f"[RATE LIMIT] IP: {ip}, Action: {action}")
+
+    if not table_id:
+        print("[RATE LIMIT] No table configured")
+        return True, "Rate limit not configured"
+
+    try:
+        safe_ip = ip.replace(":", "_").replace(".", "_")
+        doc_id = f"{safe_ip}_{action}"
+
+        now = datetime.now(timezone.utc)
+
+        print(f"[RATE LIMIT] Doc ID: {doc_id}")
+
+        # -----------------------------
+        # 1. GET EXISTING RECORD
+        # -----------------------------
+        record = common_get_record(table_id, doc_id)
+
+        if record:
+            f"[RATE LIMIT] Existing record: \n{pformat(record['data'])}"
+
+        if record:
+            current_count = int(record.get("data", {}).get("count", 0))
+            reset_at_str = record.get("data", {}).get("reset_at", 0)
+
+            print(f"[RATE LIMIT] Count: {current_count}")
+            print(f"[RATE LIMIT] Reset at raw: {reset_at_str}")
+
+            try:
+                reset_at = datetime.fromisoformat(reset_at_str.replace("Z", "+00:00"))
+            except Exception:
+                print("[RATE LIMIT] Failed to parse reset_at → forcing reset")
+                reset_at = now
+
+            max_requests = int(
+                common_rate_limits_dicts()[action]
+                or os.getenv("RATE_LIMIT_DEFAULT", "5")
+            )
+
+            print(f"[RATE   wed]: {max_requests}")
+
+            # -----------------------------
+            # 2. STILL IN WINDOW
+            # -----------------------------
+            if reset_at > now:
+                print("[RATE LIMIT] Inside window")
+
+                if current_count >= max_requests:
+                    print(f"[RATE LIMIT] LIMIT EXCEEDED \n\n{'*'*80}\n\n")
+                    return False, f"Limit exceeded ({int(max_requests) - 1})"
+
+                update_result = common_update_record(
+                    table_name=table_id,
+                    row_id=doc_id,
+                    data={"count": current_count + 1},
+                )
+
+                print(f"[RATE LIMIT] Update result: {update_result}")
+
+                if update_result.get("error"):
+                    print("[RATE LIMIT] Update FAILED")
+
+                return True, "OK"
+
+            # -----------------------------
+            # 3. WINDOW EXPIRED → RESET
+            # -----------------------------
+            print("[RATE LIMIT] Window expired → resetting")
+
+            new_reset = now + timedelta(seconds=window_seconds)
+
+            update_result = common_update_record(
+                table_name=table_id,
+                row_id=doc_id,
+                data={"count": 1, "reset_at": new_reset.isoformat()},
+            )
+
+            print(f"[RATE LIMIT] Reset result: {update_result}\n\n{'*'*80}")
+
+            return True, "OK"
+
+        # -----------------------------
+        # 4. RECORD DOES NOT EXIST → CREATE
+        # -----------------------------
+        print("[RATE LIMIT] No record → creating new one")
+
+        new_reset = now + timedelta(seconds=window_seconds)
+
+        create_result = common_create_record(
+            table_name=table_id,
+            row_id=doc_id,
+            data={
+                "ip_action_key": doc_id,
+                "count": 1,
+                "reset_at": new_reset.isoformat(),
+            },
+        )
+
+        print(f"[RATE LIMIT] Create result: {create_result}")
+
+        if create_result.get("error"):
+            print("[RATE LIMIT] CREATE FAILED")
+
+        return True, "OK"
+
+    except Exception as e:
+        print(f"[RATE LIMIT ERROR] {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        return True, "Fail-open"
 
 
 def common_load_tables(target="tables"):
-    # env vars ----------------
-
+    """
+    Returns either TablesDB or Databases service based on target.
+    """
     client = Client()
-    client.set_endpoint(os.getenv("appwrite_end_point"))  # Your API Endpoint
-    client.set_project(os.getenv("project_name"))  # Your project ID
-    client.set_key(os.getenv("app_key"))  # Your secret API key
-    databases = Databases(client)
-    tables_db = TablesDB(client)
+    client.set_endpoint(os.getenv("appwrite_end_point"))
+    client.set_project(os.getenv("project_name"))
+    client.set_key(os.getenv("app_key"))
 
     if target == "tables":
-        return tables_db
+        return TablesDB(client)
+
+    # ADD THIS BLOCK
     if target == "databases":
-        return databases
+        return Databases(client)
+
+    raise ValueError(f"Unknown target: {target}")
+
+
+def common_log_debug(message: str):
+
+    if os.getenv("print_logs"):
+        print(f"[DEBUG] {common_get_millis()} {message}")
+
+
+def _clean_document(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove Appwrite metadata fields ($...)"""
+    return {k: v for k, v in data.items() if not k.startswith("$")}
+
+
+def common_one_dict(d, priority_keys=None):
+    if priority_keys is None:
+        priority_keys = []
+
+    result = {}
+
+    def _flatten(d_dict):
+        for k, v in d_dict.items():
+            if isinstance(v, dict):
+                _flatten(v)
+            else:
+                result[k] = v
+
+    _flatten(d)
+
+    # print("Flattened dict:", result)
+    # print("Priority keys:", priority_keys)
+
+    # Build sort key map
+    priority_map = {key: idx for idx, key in enumerate(priority_keys)}
+
+    def sort_key(item):
+        key = item[0]
+        if key in priority_map:
+            return (0, priority_map[key])  # Keep specified order
+        return (1, key)  # Alphabetical for others
+
+    # Sort items
+    sorted_items = sorted(result.items(), key=sort_key)
+
+    # Return a regular dict with insertion order preserved (Python 3.7+)
+    return dict(sorted_items)
 
 
 def common_dict_str(target):
@@ -141,11 +359,13 @@ def common_minutes_after_last_update(first_millis, second_millis, seconds=60):
     # Ensure inputs are integers
     first_millis = int(
         common_convert_to_milliseconds(
-            first_millis, "common_minutes_after_last_update 01")
+            first_millis, "common_minutes_after_last_update 01"
+        )
     )
     second_millis = int(
         common_convert_to_milliseconds(
-            second_millis, "common_minutes_after_last_update 02")
+            second_millis, "common_minutes_after_last_update 02"
+        )
     )
 
     # Calculate the difference in milliseconds
@@ -194,7 +414,41 @@ def common_millis_to_datetime(millis):
         return "Invalid date"
 
 
-def common_encode_internal(data_to_encrypt):
+def common_encode_one_value(one_value):
+    secret = os.getenv("secret_jwt")
+
+    if not secret:
+        raise ValueError("Missing secret_jwt environment variable")
+
+    payload = one_value if isinstance(one_value, dict) else {"value": one_value}
+
+    try:
+        return jwt.encode(payload, secret, algorithm="HS256")
+    except Exception as e:
+        raise ValueError(f"JWT encoding failed: {str(e)}")
+
+
+def common_decode_one_value(token):
+    secret = os.getenv("secret_jwt")
+
+    if not secret:
+        raise ValueError("Missing secret_jwt environment variable")
+
+    try:
+        decoded = jwt.decode(token, secret, algorithms=["HS256"])
+        return decoded
+
+    except jwt.ExpiredSignatureError:
+        return {"error": True, "message": "Token expired"}
+
+    except jwt.InvalidTokenError:
+        return {"error": True, "message": "Invalid token"}
+
+    except Exception as e:
+        return {"error": True, "message": f"Decode failed: {str(e)}"}
+
+
+def common_encode_dict(data_to_encrypt):
 
     private_key = os.getenv("secret_jwt")
 
@@ -207,23 +461,20 @@ def common_encode_internal(data_to_encrypt):
 
     try:
         # Encode JWT with proper error handling
-        token = jwt.encode(
-            data_to_encrypt, private_key, algorithm="HS256")
+        token = jwt.encode(data_to_encrypt, private_key, algorithm="HS256")
         return token
 
     except InvalidKeyError:
-        raise ValueError(
-            "Invalid private key. Ensure it is a valid RSA private key.")
+        raise ValueError("Invalid private key. Ensure it is a valid RSA private key.")
 
     except TypeError as e:
         raise ValueError(f"Invalid data format: {str(e)}")
 
     except Exception as e:
-        raise ValueError(
-            f"An unexpected error occurred while encoding JWT: {str(e)}")
+        raise ValueError(f"An unexpected error occurred while encoding JWT: {str(e)}")
 
 
-def common_decode_internal(encoded):
+def common_decode_dict(encoded):
 
     if not encoded:
         return None
@@ -235,6 +486,7 @@ def common_decode_internal(encoded):
         keys_to_try.append(env_key)
 
     # fallback key
+    keys_to_try.append("secret_jwt2")
     keys_to_try.append("account_at_999")
 
     for key in keys_to_try:
@@ -250,26 +502,7 @@ def common_at_id(email):
     return email.replace("@", "AT")
 
 
-def common_create_record(table_name="picker", data=None, row_id=None):
-    """
-    Creates a record in Appwrite Tables.
-
-    picker table data:
-        {
-            email,
-            text,
-            status: new | viewed,
-            millis
-        }
-
-    picker_accounts table data:
-        {
-            email,
-            password,
-            name,
-            millis
-        }
-    """
+def common_create_record(table_name="security_db", data=None, row_id=None):
 
     # print("create_record() called")
     # pprint(data)
@@ -278,53 +511,14 @@ def common_create_record(table_name="picker", data=None, row_id=None):
     # Basic validation
     # -------------------------
     if data is None or not isinstance(data, dict):
-        return {
-            "error": True,
-            "message": "Invalid data payload"
-        }
+        return {"error": True, "message": "Invalid data payload"}
 
     # -------------------------
     # Normalize & sanitize data
     # -------------------------
-    millis = str(common_get_millis())
-    data.setdefault("millis", millis)
 
     # Remove control keys
     data.pop("update", None)
-
-    # -------------------------
-    # Special handling for picker_accounts
-    # -------------------------
-    if table_name == "picker_accounts":
-        required = ("email", "password", "name")
-        for field in required:
-            if field not in data or not data[field]:
-                return {
-                    "error": True,
-                    "message": f"Missing required field: {field}"
-                }
-
-        # Generate deterministic row ID
-        row_id = common_at_id(data["email"])
-
-        # Encode sensitive fields
-        data["email"] = common_encode_internal({"email": data["email"]})
-        data["password"] = common_encode_internal(
-            {"password": data["password"]})
-        data["name"] = common_encode_internal({"name": data["name"]})
-
-    # -------------------------
-    # Special handling for picker
-    # -------------------------
-    if table_name == "picker":
-        required = ("email", "text", "status")
-        for field in required:
-            if field not in data:
-                return {
-                    "error": True,
-                    "message": f"Missing required field: {field}"
-                }
-
     # -------------------------
     # Create document
     # -------------------------
@@ -340,94 +534,426 @@ def common_create_record(table_name="picker", data=None, row_id=None):
             document_id = row_id or str(ID.unique())
 
             created_record = _tables.create_row(
-                database_id=db_id,
-                table_id=table_name,
-                row_id=document_id,
-                data=data
+                database_id=db_id, table_id=table_name, row_id=document_id, data=data
             )
 
             # print(
             #     f"Record created on attempt {attempt}:, {pformat(created_record)}")
 
-            return {
-                "created": True,
-                # "id": document_id,
-                "attempts": attempt
-            }
+            return {"created": True, "id": document_id, "attempts": attempt}
 
         except AppwriteException as e:
             print(f"Attempt {attempt} failed: {e.message}")
 
             # Last attempt → return error
             if attempt == MAX_RETRIES:
-                return {
-                    "error": True,
-                    "message": e.message,
-                    "attempts": attempt
-                }
+                return {"error": True, "message": e.message, "attempts": attempt}
 
             # Small backoff before retrying
             time.sleep(RETRY_DELAY)
 
 
-def common_get_record(
-    table_id: str = "data_env",
-    row_id: str = "wompi_tlovendo"
-) -> Optional[Dict[str, Any]]:
+def common_update_record(table_name="security_db", row_id=None, data=None):
 
-    print(f"[common_get_record] Fetching: table={table_id}, row={row_id}")
+    # -------------------------
+    # Basic validation
+    # -------------------------
+    if not row_id:
+        return {"error": True, "message": "row_id is required"}
 
+    if data is None or not isinstance(data, dict):
+        return {"error": True, "message": "Invalid data payload"}
+
+    # -------------------------
+    # Normalize & sanitize data
+    # -------------------------
+    data.pop("update", None)
+
+    # -------------------------
+    # Update document
+    # -------------------------
+    MAX_RETRIES = 2
+    RETRY_DELAY = 0.5
+
+    db_id = os.getenv("db_id")
+    _tables = common_load_tables("tables")
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            updated_record = _tables.update_row(
+                database_id=db_id, table_id=table_name, row_id=row_id, data=data
+            )
+
+            return {"updated": True, "id": row_id, "attempts": attempt}
+
+        except AppwriteException as e:
+            print(f"\n\n[Update Attempt {attempt}] {e.message}\n\n")
+
+            if attempt == MAX_RETRIES:
+                return {"error": True, "message": e.message, "attempts": attempt}
+
+            time.sleep(RETRY_DELAY)
+
+
+def common_get_record(table_id: str, row_id: str) -> Optional[Dict[str, Any]]:
     try:
         db_id = os.getenv("db_id")
-        endpoint = os.getenv("appwrite_end_point")
-        project = os.getenv("project_name")
-        key = os.getenv("app_key")
+        if not db_id:
+            raise ValueError("Missing environment variable: db_id")
 
-        if not all([db_id, endpoint, project, key]):
-            print("[ERROR] One or more Environment Variables are missing (db_id, endpoint, project, or app_key)")
-            return None
-
-        client = Client()
-        client.set_endpoint(endpoint)
-        client.set_project(project)
-        client.set_key(key)
-
-        databases = Databases(client)
-
-        # Fetch the document
-        result = databases.get_document(
-            database_id=db_id,
-            collection_id=table_id,
-            document_id=row_id
-        )
+        tables = common_load_tables("tables")
+        result = tables.get_row(database_id=db_id, table_id=table_id, row_id=row_id)
 
         if result:
-            # CRITICAL FIX: 
-            # Appwrite SDK returns a 'Document' object, not a dict.
-            # Converting it to dict() allows the rest of your code to use .get()
-            return dict(result)
-        
-        return None
+            # 1. Appwrite SDK objects usually have a to_dict() method
+            if hasattr(result, "to_dict"):
+                data_dict = result.to_dict()
+            
+            # 2. If it's a Pydantic v2 model (standard in Python 3.9+ environments)
+            elif hasattr(result, "model_dump"):
+                data_dict = result.model_dump()
+            
+            # 3. Fallback for older Pydantic or simple objects
+            elif hasattr(result, "__dict__"):
+                # We use __dict__.items() instead of dir() to avoid metadata warnings
+                data_dict = {k: v for k, v in result.__dict__.items() if not k.startswith('_')}
+            
+            else:
+                data_dict = dict(result)
 
-    except AppwriteException as e:
-        # Document not found is a common "error" we want to handle gracefully
-        if e.code == 404:
-            print(f"[common_get_record] Document {row_id} not found in {table_id}")
-        else:
-            print(f"[Appwrite ERROR] {e.message} (code: {e.code})")
+            return _clean_document(data_dict)
+
         return None
 
     except Exception as e:
-        print(f"[GENERAL ERROR] in common_get_record: {str(e)}")
+        print(f"[GENERAL ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
-if __name__ == "__main__":
-    pass
 
-    # pprint(common_get_record())
+def common_generate_id(prefix="333", id_len=40):
+    return f"{prefix}_{''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(id_len))}"
+
+
+def common_generate_int_id(id_len=128):
+    return secrets.randbits(id_len)
+
+
+def common_rate_limits_dicts():
+
+    env_str = os.getenv("RATE_LIMITS")
+    parts = env_str.split(",")
+
+    if len(parts) % 2 != 0:
+        raise ValueError("Invalid format: must be key,value pairs")
+
+    return {parts[i]: int(parts[i + 1]) for i in range(0, len(parts), 2)}
+
+
+def common_shift_text(text, shift):
+
+    lower = string.ascii_lowercase
+    upper = string.ascii_uppercase
+    digits = string.digits
+
+    result = ""
+
+    for char in text:
+
+        if char in lower:
+            i = lower.index(char)
+            result += lower[(i + shift) % 26]
+
+        elif char in upper:
+            i = upper.index(char)
+            result += upper[(i + shift) % 26]
+
+        elif char in digits:
+            i = digits.index(char)
+            result += digits[(i + shift) % 10]
+
+        else:
+            result += char
+
+    return result
+
+
+def common_shift_text_to_int(text, shift):
+
+    lower = string.ascii_lowercase
+    upper = string.ascii_uppercase
+    digits = string.digits
+
+    result = ""
+
+    for char in text:
+
+        if char in lower:
+            i = lower.index(char)
+            result += digits[(i + shift) % 10]
+
+        elif char in upper:
+            i = upper.index(char)
+            result += digits[(i + shift) % 10]
+
+        elif char in digits:
+            i = digits.index(char)
+            result += digits[(i + shift) % 10]
+
+        else:
+            result += char
+
+    return int(result)
+
+
+def common_minutes_to_future_ms(minutes: int) -> int:
+    now_ms = int(time.time() * 1000)  # current time in milliseconds
+    future_ms = now_ms + (minutes * 60 * 1000)
+    return future_ms
+
+
+def common_get_expiration(minutes: int):
+    """
+    Generate current and expiration timestamps.
+
+    Args:
+        minutes (int): Minutes until expiration.
+
+    Returns:
+        tuple: now_ms, exp_ms, now_sec, exp_sec
+    """
+
+    now_sec = int(time.time())
+    exp_sec = now_sec + minutes * 60
+
+    return now_sec * 1000, exp_sec * 1000, now_sec, exp_sec
+
+
+def common_is_expired(timestamp: int) -> bool:
+    """
+    Returns True if expired, False if still valid.
+    Accepts seconds or milliseconds timestamps.
+    """
+
+    now_sec = int(time.time())
+    now_ms = now_sec * 1000
+
+    if timestamp > 1_000_000_000_000:
+        return now_ms > timestamp
+
+    return now_sec > timestamp
+
+
+def common_generate_jwt_payment_token(merchant_id: str = "NoUser", minutes: int = 1):
+
+    pid = common_generate_int_id(9)
+    secret = os.getenv("secret_jwt")
+
+    now = int(time.time())
+    exp = now + (minutes * 60)
+
+    payload = {"pid": pid, "mid": merchant_id, "iat": now, "exp": exp}
+
+    return {"token": jwt.encode(payload, secret, algorithm="HS256"), "pid": pid}
+
+
+def common_decode_payment_token(token):
+    secret = os.getenv("secret_jwt")
+
+    try:
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        return payload
+
+    except jwt.ExpiredSignatureError:
+        return {"error": "link expired"}
+
+    except jwt.InvalidTokenError:
+        return {"error": "invalid link"}
+
+
+BASE62 = string.digits + string.ascii_letters
+BASE62_MAP = {c: i for i, c in enumerate(BASE62)}
+
+
+def base62_encode(num):
+
+    if num == 0:
+        return BASE62[0]
+
+    arr = []
+    base = 62
+
+    while num:
+        num, rem = divmod(num, base)
+        arr.append(BASE62[rem])
+
+    return "".join(reversed(arr))
+
+
+def base62_decode(s):
+    num = 0
+
+    for char in s:
+        num = num * 62 + BASE62_MAP[char]
+
+    return num
+
+
+def common_generate_payment_token(minutes=5):
+
+    pid = secrets.randbits(32)
+    secret = os.getenv("secret_jwt")
+    print(secret)
+    exp = int(time.time()) + minutes * 60
+
+    raw = pid.to_bytes(4, "big") + exp.to_bytes(4, "big")
+
+    sig = hashlib.sha256(raw + secret.encode()).digest()[:4]
+
+    token_bytes = raw + sig
+
+    num = int.from_bytes(token_bytes, "big")
+
+    return {"token": base62_encode(num), "pid": pid, "exp": exp}
+
+
+def common_verify_payment_token(token):
+
+    if token is None:
+        return {"pid": secrets.randbits(32), "token": True, "code": 201}
+
+    secret = os.getenv("secret_jwt")
+
+    try:
+        num = base62_decode(token)
+
+        data = num.to_bytes(12, "big")
+
+        raw = data[:8]
+        sig = data[8:]
+
+        expected = hashlib.sha256(raw + secret.encode()).digest()[:4]
+
+        if sig != expected:
+            return {"msg": "Invalid token", "code": 500}
+
+        pid = int.from_bytes(raw[:4], "big")
+        exp = int.from_bytes(raw[4:], "big")
+
+        if time.time() > exp:
+            pid = secrets.randbits(32)
+            return {"msg": "Invalid token - exp", "code": 202}
+
+        return {"pid": pid, "exp": exp, "token": True, "code": 200}
+
+    except:
+        pid = secrets.randbits(32)
+        return {"msg": "Something went wrong", "code": 203}
+
+
+def send_email(
+    _from: str = "tlovendo",
+    to: str = "",
+    subject: str = "email_verification",
+    lang: str = "en",
+    data: dict = None,
+    test: bool = True,
+):
+    # 1. Import Common Functions
+    try:
+        from .email_service.send_email_btc import sendEmailBtc
+
+    except (ImportError, ValueError):
+        from email_service.send_email_btc import sendEmailBtc
+
+    sendEmailBtc(_from, to, subject, lang, data, test)
+
+
+if __name__ == "__main__":
+
+    pass
+    create_record_data = {
+        "success": True,
+        "data": {
+            "token": "wKopPiUxa0CzfBX+Km3aMg==",
+            "tarjetaEnmascarada": "5230 4506 XXXX 8871 ",
+        },
+        "message": "Card tokenized successfully",
+        "config_id": "tlovendo",
+    }
+    create_record_data = {
+        "ip_action_key": "123456789",
+        "count": 4,
+        "reset_at": "2026-03-19T06:32:25.100+00:00",
+    }
+    row_id = "test_one_02"
+
+    send_email(
+        _from="tlovendo",
+        to="esteban.g.jandres@gmail.com",
+        subject="email_order",
+        lang="es",
+        data={
+            "app_name": "tlovendo",
+            "name": "Esteban Jandres",
+            "expiration_minutes": 5,
+            "theme": "#ff8f9c",
+            "order_id": common_generate_int_id(6),
+        },
+        test=True,
+    )
+    # print(common_generate_int_id())
+
+    # l = common_generate_payment_token(minutes=1)
+
+    # print("ID:", l)
+    # print("Timestamp:", common_verify_payment_token(l["token"]))
+
+    # print(base62_encode(common_shift_text_to_int(
+    #     "gtmS7cFpWhWB2LFFxZ82Dze3tZD3", 3)))
+
+    # print(common_minutes_to_future_ms(5))
+    # one, two, three = common_get_expiration(5)
+
+    # print("Created:", one)
+    # print("Expires:", two)
+    # print("Expires three:", three)
+
+    # id = (common_generate_int_id(9))
+    # print(id)
+    # encode = common_shift_text("1845-creaditcard", id)
+    # print(encode)
+    # print(common_shift_text(encode, -id))
+
+    # pprint(common_rate_limits_dicts())
+
+    # pprint(common_decode_dict("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBJZCI6ImZkY2RjNDNmLTkxMGQtNGM3Ni04YWFjLTVlNjNjYTkyMmVkYyIsImFwcFNlY3JldCI6ImQzYzg4OWIyLTQ0ZGQtNGJkMy04ZjUzLTZkZmYzMjcxMzQzMiJ9.-rLISnRjNMhiLOoqIMA5R280sVP30r95QTFBQs-_g50"))
+
+    # print(common_encode_dict({
+    #     "appId": "fdcdc43f-910d-4c76-8aac-5e63ca922edc",
+    #     "appSecret": "d3c889b2-44dd-4bd3-8f53-6dff32713432"
+    # }))
+    # t = (common_encode_one_value("esteban"))
+    # print(t)
+    # print(common_decode_one_value(t))
+    # pprint(common_update_record(table_name="security_db",
+    #        data=create_record_data, row_id=row_id))
+    # pprint(common_create_record("security_db", create_record_data, row_id=row_id))
+
+    r = (common_get_record("6766ef78000d7daec880", "leaguesInCountry"))
+    print(f"\n\nrecord gotten \n{pformat(r)}")
+    # rr = common_get_record("email_server_data", "payNus")
+    # print(f"\n\nrecord gotten \n{pformat(common_decode_dict(rr["data"]["data"]))}")
+
+    # print(common_load_tables())
+    # print(common_generate_id())
     # print(common_get_millis())
-    # encoded = common_encode_internal({"name": "esteban"})
+    # encoded = (common_encode_dict({
+    #     "appId": "fdcdc43f-910d-4c76-8aac-5e63ca922edc",
+    #     "appSecret": "d3c889b2-44dd-4bd3-8f53-6dff32713432"
+    # }))
     # print(encoded)
-    # print(common_decode_internal(encoded))
+    # print(common_decode_dict(encoded))
     # create_record("picker_accounts", data={
     #               "email": "eggsteba12@gmail.com", "password": "eggsteba11@gmail.com", "name": "Esteban"})
