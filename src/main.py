@@ -38,6 +38,7 @@ def main(context):
     
 
     # 2. Support both GET and POST (your tester.py sends POST by default)
+
     if context.req.method in ["GET", "POST"]:
         try:
             if data.get("update") == "leaguesByCountry":
@@ -47,9 +48,25 @@ def main(context):
                     record = cf.common_get_record("6766ef78000d7daec880", "leaguesInCountry")
                     
                     if record and "data" in record:
-                        # Extract the nested data your logic expects
+                        # 1. Get the double-encoded string
                         response_data = record["data"]["data"]
-                        return create_response(response_data, 200)
+                        
+                        try:
+                            # 2. First decode: Removes the outer escaped quotes 
+                            # Result: "[[ \"National Teams\", ...]]" (now a valid JSON string)
+                            first_decode = json.loads(response_data)
+                            
+                            # 3. Second decode: Converts that string into a real Python List
+                            # Result: [['National Teams', {...}], ...]
+                            final_json_data = json.loads(first_decode)
+                            
+                            return create_response(final_json_data, 200)
+                        
+                        except (json.JSONDecodeError, TypeError) as decode_error:
+                            context.error(f"Decoding failed: {decode_error}")
+                            # Fallback: If it's not double-encoded after all, try returning the original
+                            return create_response(response_data, 200)
+
                     else:
                         return create_response({"error": "Record not found"}, 404)
 

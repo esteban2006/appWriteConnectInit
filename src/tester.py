@@ -37,9 +37,22 @@ def get_world_list():
     if response.status_code in [200, 201]:
         result = response.json()
         print("Function Output:")
-        # The actual return from your main.py is in 'responseBody'
-        pprint(result.get("responseBody")) 
-        print (result)
+        # # The actual return from your main.py is in 'responseBody'
+        # pprint(result.get("responseBody")) 
+        print (json.dumps(result["responseBody"]))
+
+
+
+        # Create a clean list of dictionaries
+        # final_list = []
+
+        # for category, details in result[0]:
+        #     # Add the category name into the dictionary
+        #     details['category'] = category
+        #     final_list.append(details)
+
+        # # Result
+        # print(final_list)
     else:
         print(f"Error {response.status_code}:")
         pprint(response.json())

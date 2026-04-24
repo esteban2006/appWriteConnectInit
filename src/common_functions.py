@@ -955,7 +955,7 @@ if __name__ == "__main__":
     # pprint(common_create_record("security_db", create_record_data, row_id=row_id))
 
     r = (common_get_record("6766ef78000d7daec880", "leaguesInCountry"))
-    print(f"\n\nrecord gotten \n{pformat(r)}")
+    print(f"\n\nrecord gotten \n{pformat(r['data']['data'])}")
     # rr = common_get_record("email_server_data", "payNus")
     # print(f"\n\nrecord gotten \n{pformat(common_decode_dict(rr["data"]["data"]))}")
 
