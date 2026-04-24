@@ -39,7 +39,7 @@ def get_world_list():
         print("Function Output:")
         # # The actual return from your main.py is in 'responseBody'
         # pprint(result.get("responseBody")) 
-        print (json.dumps(result["responseBody"]))
+        print (result["responseBody"])
 
 
 

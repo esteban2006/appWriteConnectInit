@@ -58,9 +58,9 @@ def main(context):
                             
                             # 3. Second decode: Converts that string into a real Python List
                             # Result: [['National Teams', {...}], ...]
-                            final_json_data = json.loads(first_decode)
+                            # final_json_data = json.loads(first_decode)
                             
-                            return create_response(final_json_data, 200)
+                            return create_response(first_decode, 200)
                         
                         except (json.JSONDecodeError, TypeError) as decode_error:
                             context.error(f"Decoding failed: {decode_error}")
