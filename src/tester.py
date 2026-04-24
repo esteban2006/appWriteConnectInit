@@ -339,7 +339,7 @@ def print_tree(start_path=".", prefix=""):
             print_tree(path, prefix + extension)
 
 
-print(print_tree())
+# print(print_tree())
 
 
 # with open("function/requirements.txt", "w", encoding="utf-8") as f:

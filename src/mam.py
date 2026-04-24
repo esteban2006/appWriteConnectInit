@@ -7,9 +7,9 @@ from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
 from jwt.exceptions import InvalidKeyError
 # from main_helpers import print_centered_banner
 import segno
-from tronpy import Tron
-from tronpy.providers import HTTPProvider
-from tronpy.keys import PrivateKey
+# from tronpy import Tron
+# from tronpy.providers import HTTPProvider
+# from tronpy.keys import PrivateKey
 import base58
 import base64
 from ast import ClassDef
@@ -131,8 +131,8 @@ class Main:
 
         # wallet -------------------------------------------------------
 
-        self.client = Tron(HTTPProvider(api_key=os.getenv("tron_api_one")))
-        self.client = Tron()
+        # self.client = Tron(HTTPProvider(api_key=os.getenv("tron_api_one")))
+        # self.client = Tron()
         self.USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
         self.API_URL_BASE = 'https://api.trongrid.io/'
         self.METHOD_BALANCE_OF = 'balanceOf(address)'
@@ -1826,9 +1826,7 @@ class Main:
             return e.message
 
     def get_document(self, collection="xxx", document_id=None, by=None):
-        print(
-            f"\nget_document CCC: \n\tcollection {collection} \n\tdocument_id {document_id} \n\t{'by' if by is not None else ''} {by if by is not None else ''}\n\n"
-        )
+        print(f"\nget_document CCC: \n\tcollection {collection} \n\tdocument_id {document_id}")
 
         try:
             result = self.tables_db.get_row(
@@ -1837,45 +1835,50 @@ class Main:
                 row_id=document_id
             )
 
-            # pprint(result)
+            print(f"result at get document {'*'*80}")
+            
+            # 1. Properly convert the Row object to a dictionary
+            # Appwrite objects usually store custom attributes in a dict called 'data' or 'attributes'
+            if hasattr(result, 'attributes'):
+                res_dict = result.attributes
+            elif hasattr(result, 'data'):
+                res_dict = result.data
+            elif isinstance(result, dict):
+                res_dict = result
+            else:
+                # Fallback for some SDK versions
+                res_dict = vars(result)
 
-            # Ensure 'data' exists and is not empty before parsing
-            if "data" in result and result["data"]:
+            # 2. Extract the content from the 'data' column
+            data_content = res_dict.get("data")
+
+            if data_content:
                 try:
-
-                    # data = result["data"]
-                    parsed_data = self.get_dict(result["data"])
-                    # parsed_data = parsed_data if isinstance(
-                    #     parsed_data, dict) else {}
-
-                except json.JSONDecodeError as e:
-                    print(f"got error {e}")
+                    parsed_data = self.get_dict(data_content)
+                except Exception as e:
+                    print(f"JSON Parse error: {e}")
                     parsed_data = {}
 
-                # print("returning parsed data")
-
+                # Return the list format your calling code expects
                 return [
-                    parsed_data,
-                    result.get("today", "X"),  # 1
-                    result.get("counter", "X"),  # 2
-                    result.get("last_update", "X"),  # 3
-                    result.get("ids", "X"),  # 4
-                    result.get("indexes", "X"),  # 5
-                    result.get("last_update_date", "X"),  # 6
-                    result.get("bolts", "X"),  # 7
-                    result.get("history", "X"),  # 8
+                    parsed_data,                         # 0: data
+                    res_dict.get("today", "X"),          # 1
+                    res_dict.get("counter", "X"),        # 2
+                    res_dict.get("last_update", "X"),    # 3
+                    res_dict.get("ids", "X"),            # 4
+                    res_dict.get("indexes", "X"),        # 5
+                    res_dict.get("last_update_date", "X"), # 6
+                    res_dict.get("bolts", "X"),          # 7
+                    res_dict.get("history", "X"),        # 8
                 ]
-
             else:
-                print("returing result")
-                return result
+                print("WARNING: 'data' column was empty or not found in the record attributes.")
+                # Return a list of empty values to prevent KeyError: 0 in calling code
+                return [{}, "X", "X", "X", "X", "X", "X", "X", "X"]
+
         except AppwriteException as e:
-            if "Document with the requested ID could not be found" in str(e):
-                return False
-            else:
-                print(str(e))
-                return False
-
+            print(f"Appwrite Error: {str(e)}")
+            return False
     def delete_document(self, collection="xxx", document_id=None):
 
         try:
@@ -2665,18 +2668,12 @@ class Main:
         ip_counter = self.check_ip_exists(data)
 
         print(f"ip counter at get_lbc")
-        pprint(ip_counter)
+        # return (ip_counter)
 
+        ip_counter["blocked"] = False
         if not ip_counter["blocked"]:
 
             try:
-                # Fetch collection document
-                # collection = self.databases.get_document(
-                #     database_id=self.db_id,
-                #     collection_id=self.leages_by_country_collection_id,
-                #     document_id=self.leagues_by_country_document_id,
-                # )
-
                 collection_ = self.get_document(
                     self.leages_by_country_collection_id,
                     self.leagues_by_country_document_id,
@@ -4474,10 +4471,8 @@ class Main:
                 print(f"\n\nexisting token ELSE {token}")
 
                 token["ipChanged"] = {
-                    {
-                        "last_update": current_millis,
-                        "error_calls": [0, calls_in_error, time_controller]
-                    }
+                    "last_update": current_millis,
+                    "error_calls": [0, calls_in_error, time_controller]
                 }
 
                 return {
@@ -5335,7 +5330,7 @@ if __name__ == "__main__":
                  'document_id': 'UYRP5H7G7B9WDQVSSNT1J2J770OLCC4DAGGIMMW3F0PJDCRL8A',
                  'email': 'creation10@gmail.com',
                  'id': 'LOG87TK3VN2',
-                 'ip': '2a09.bac3.556f.e78..171.252',
+                 'ip': '2a09.bac3.556f.e78..171.575',
                  'key': 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWFndWVzQnlDb3VudHJ5Ijp7Imxhc3RfdXBkYXRlIjoxNzY1OTgzMjEzMzU3LCJlcnJvcl9jYWxscyI6WzAsNSw2MF19LCJpcEFkZHJlc3MiOiIyYTA5LmJhYzMuNTU2Zi5lNzguLjE3MS4yNTIifQ.OkP1mHQPxQI_3C7kpZ87B1UXJcK4iOfujIqNa9kfyUpJZk36OMkzUW4XiZl5u_NdR1eZSgxPbWg25K0RmRMJoYXah5tzL2rU4ew64-3lubFPaevR21NNHRfDGhelQaFZNX3EiwblU2EgKyHk0m_fQPKgo72Lfpxpz7qmqkc',
                  'type': 'USDT - Tron',
                  'update': 'leaguesByCountry'}
@@ -5345,4 +5340,4 @@ if __name__ == "__main__":
     # print("CALLER RESULT:")
     # pprint(result)
 
-    print(get_lbc(live_test))
+    # print(get_lbc(live_test))

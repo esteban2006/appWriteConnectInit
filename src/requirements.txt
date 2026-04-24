@@ -7,3 +7,4 @@ mnemonic
 web3 
 eth-account
 openai
+base58
