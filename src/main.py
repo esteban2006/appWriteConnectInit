@@ -18,13 +18,24 @@ def main(context):
         except:
             data = {}
 
-    # Define common headers for CORS
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Content-Type": "application/json",
-    }
+
+    def create_response(data, status=200):
+        response_body = json.dumps(data)
+        response = {
+            "status": status,
+            "body": response_body,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Content-Type": "application/json",
+            },
+        }
+
+        print("response sending out ")
+        pprint(response)
+        return response
+    
 
     # 2. Support both GET and POST (your tester.py sends POST by default)
     if context.req.method in ["GET", "POST"]:
@@ -38,22 +49,22 @@ def main(context):
                     if record and "data" in record:
                         # Extract the nested data your logic expects
                         response_data = record["data"]["data"]
-                        return context.res.json(json.dumps(response_data), 200, headers)
+                        return create_response(response_data, 200)
                     else:
-                        return context.res.json({"error": "Record not found"}, 404, headers)
+                        return create_response({"error": "Record not found"}, 404)
 
                 except Exception as e:
                     context.error(f"Error fetching record: {e}")
-                    return context.res.json({"error": "Database error", "details": str(e)}, 500, headers)
+                    return create_response({"error": "Database error", "details": str(e)}, 500)
 
         except Exception as e:
             context.error(f"Error processing request: {e}")
-            return context.res.json({"error": "Bad request", "details": str(e)}, 400, headers)
+            return create_response({"error": "Bad request", "details": str(e)}, 400)
 
     # 3. CRITICAL: Catch-all return to prevent the "Return statement missing" error
     # This runs if the method isn't GET/POST or the "update" key is missing
-    return context.res.json({
+    return create_response({
         "message": "No valid action specified or unsupported method.",
         "received_method": context.req.method,
         "received_data": data
-    }, 400, headers)
+    }, 400)
