@@ -55,11 +55,35 @@ def main(context):
                             # 2. First decode: Removes the outer escaped quotes 
                             # Result: "[[ \"National Teams\", ...]]" (now a valid JSON string)
                             first_decode = json.loads(response_data)
-                            
-                            # 3. Second decode: Converts that string into a real Python List
-                            # Result: [['National Teams', {...}], ...]
-                            # final_json_data = json.loads(first_decode)
-                            
+                            return create_response(first_decode, 200)
+                        
+                        except (json.JSONDecodeError, TypeError) as decode_error:
+                            context.error(f"Decoding failed: {decode_error}")
+                            # Fallback: If it's not double-encoded after all, try returning the original
+                            return create_response(response_data, 200)
+
+                    else:
+                        return create_response({"error": "Record not found"}, 404)
+
+                except Exception as e:
+                    context.error(f"Error fetching record: {e}")
+                    return create_response({"error": "Database error", "details": str(e)}, 500)
+                
+
+            if data.get("update") == "allPublic":
+                context.log("Attempting to get allPublic...")
+
+                try:
+                    record = cf.common_get_record("mam_public_all", "all_public_1")
+                    
+                    if record and "data" in record:
+                        # 1. Get the double-encoded string
+                        response_data = record["data"]["data"]
+                        
+                        try:
+                            # 2. First decode: Removes the outer escaped quotes 
+                            # Result: "[[ \"National Teams\", ...]]" (now a valid JSON string)
+                            first_decode = json.loads(response_data)
                             return create_response(first_decode, 200)
                         
                         except (json.JSONDecodeError, TypeError) as decode_error:
