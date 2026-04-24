@@ -2,13 +2,15 @@ import json
 from pprint import pprint
 import sys
 import os
+
+# Ensure local imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import common_functions as cf 
 
-
 def main(context):
-    context.log(f"Function executed with the following context:")
-    context.log(f"\n\tReceived request method: {context.req.method}")
+    context.log(f"Function executed with method: {context.req.method}")
+    
+    # 1. Parse body (handle string or dict)
     data = context.req.body
     if isinstance(data, str):
         try:
@@ -16,50 +18,42 @@ def main(context):
         except:
             data = {}
 
-    def create_response(data, status=200):
-        response_body = json.dumps(data)
-        response = {
-            "status": status,
-            "body": response_body,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Content-Type": "application/json",
-            },
-        }
+    # Define common headers for CORS
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Content-Type": "application/json",
+    }
 
-        print("\n\nresponse sending out ")
-        pprint(response)
-        return response
-    
-    if context.req.method == "GET":
+    # 2. Support both GET and POST (your tester.py sends POST by default)
+    if context.req.method in ["GET", "POST"]:
         try:
-            if data.get("update") == "leaguesByCountry":  # Add this if statement
+            if data.get("update") == "leaguesByCountry":
                 context.log("Attempting to get leaguesByCountry...")
 
                 try:
-                    leaguesByCountry = cf.common_get_record("6766ef78000d7daec880", "leaguesInCountry")["data"]["data"]
-                    response = leaguesByCountry
-                    return create_response(response)
+                    record = cf.common_get_record("6766ef78000d7daec880", "leaguesInCountry")
+                    
+                    if record and "data" in record:
+                        # Extract the nested data your logic expects
+                        response_data = record["data"]["data"]
+                        return context.res.json(response_data, 200, headers)
+                    else:
+                        return context.res.json({"error": "Record not found"}, 404, headers)
 
                 except Exception as e:
-                    context.error(f"Error creating user: {e}")
-                    import traceback
-
-                    error_message = traceback.format_exc()
-                    context.error(f"Traceback: {error_message}")
-                    return create_response(
-                        {"error": "Error creating user",
-                            "details": str(e)}, 500
-                    )
+                    context.error(f"Error fetching record: {e}")
+                    return context.res.json({"error": "Database error", "details": str(e)}, 500, headers)
 
         except Exception as e:
             context.error(f"Error processing request: {e}")
-            import traceback
+            return context.res.json({"error": "Bad request", "details": str(e)}, 400, headers)
 
-            error_message = traceback.format_exc()
-            context.error(f"Traceback: {error_message}")
-            return create_response(
-                {"error": "Error processing request", "details": str(e)}, 400
-            )
+    # 3. CRITICAL: Catch-all return to prevent the "Return statement missing" error
+    # This runs if the method isn't GET/POST or the "update" key is missing
+    return context.res.json({
+        "message": "No valid action specified or unsupported method.",
+        "received_method": context.req.method,
+        "received_data": data
+    }, 400, headers)
