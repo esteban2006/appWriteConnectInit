@@ -38,7 +38,7 @@ def main(context):
                     if record and "data" in record:
                         # Extract the nested data your logic expects
                         response_data = record["data"]["data"]
-                        return context.res.json(response_data, 200, headers)
+                        return context.res.json(json.dumps(response_data), 200, headers)
                     else:
                         return context.res.json({"error": "Record not found"}, 404, headers)
 
