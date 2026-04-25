@@ -67,7 +67,7 @@ import jwt
 import os
 import io
 import requests
-
+import struct
 
 from pprint import pprint
 from pprint import pformat
@@ -224,9 +224,11 @@ def common_load_tables(target="tables"):
     Returns either TablesDB or Databases service based on target.
     """
     client = Client()
-    
+
     # Use Appwrite Cloud variables first, then fallback to your local names
-    endpoint = os.getenv("APPWRITE_FUNCTION_ENDPOINT") or os.getenv("appwrite_end_point")
+    endpoint = os.getenv("APPWRITE_FUNCTION_ENDPOINT") or os.getenv(
+        "appwrite_end_point"
+    )
     project = os.getenv("APPWRITE_FUNCTION_PROJECT_ID") or os.getenv("project_name")
     api_key = os.getenv("APPWRITE_FUNCTION_API_KEY") or os.getenv("app_key")
 
@@ -235,7 +237,7 @@ def common_load_tables(target="tables"):
 
     client.set_endpoint(endpoint)
     client.set_project(project)
-    
+
     if api_key:
         client.set_key(api_key)
     else:
@@ -621,16 +623,18 @@ def common_get_record(table_id: str, row_id: str) -> Optional[Dict[str, Any]]:
             # 1. Appwrite SDK objects usually have a to_dict() method
             if hasattr(result, "to_dict"):
                 data_dict = result.to_dict()
-            
+
             # 2. If it's a Pydantic v2 model (standard in Python 3.9+ environments)
             elif hasattr(result, "model_dump"):
                 data_dict = result.model_dump()
-            
+
             # 3. Fallback for older Pydantic or simple objects
             elif hasattr(result, "__dict__"):
                 # We use __dict__.items() instead of dir() to avoid metadata warnings
-                data_dict = {k: v for k, v in result.__dict__.items() if not k.startswith('_')}
-            
+                data_dict = {
+                    k: v for k, v in result.__dict__.items() if not k.startswith("_")
+                }
+
             else:
                 data_dict = dict(result)
 
@@ -641,6 +645,7 @@ def common_get_record(table_id: str, row_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         print(f"[GENERAL ERROR] {str(e)}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -883,6 +888,259 @@ def send_email(
     sendEmailBtc(_from, to, subject, lang, data, test)
 
 
+# TOTP GENERATION
+
+
+def common_generate_2fa_secret():
+    return base64.b32encode(secrets.token_bytes(20)).decode("utf-8")
+
+
+def common_generate_totp(secret, digits=6, interval=30):
+    key = base64.b32decode(secret)
+
+    counter = int(time.time() // interval)
+
+    msg = struct.pack(">Q", counter)
+
+    h = hmac.new(key, msg, hashlib.sha1).digest()
+
+    offset = h[-1] & 0x0F
+
+    binary = struct.unpack(">I", h[offset : offset + 4])[0] & 0x7FFFFFFF
+
+    otp = binary % (10**digits)
+
+    return str(otp).zfill(digits)
+
+
+def common_verify_totp(secret, user_code):
+
+    for offset in [-1, 0, 1]:  # allow 30 sec clock drift
+        counter = int(time.time() // 30) + offset
+
+        key = base64.b32decode(secret)
+        msg = struct.pack(">Q", counter)
+
+        h = hmac.new(key, msg, hashlib.sha1).digest()
+        o = h[-1] & 0x0F
+        binary = struct.unpack(">I", h[o : o + 4])[0] & 0x7FFFFFFF
+
+        otp = str(binary % (10**6)).zfill(6)
+
+        if otp == user_code:
+            return True
+
+    return False
+
+
+# USER DATA
+
+
+def common_create_avatar(firstName=None, lastName=None):
+
+    if firstName is None or lastName is None:
+        return ""
+    return f"https://ui-avatars.com/api/?name={firstName}+{lastName}&background=139024&color=fff&bold=true&rounded=true&format=svg"
+
+
+def common_get_mam_user_data():
+    """
+    Returns the default user data structure used in the MAM system.
+
+    This function provides a standardized dictionary template for creating
+    or initializing a user record. All fields are initialized with empty
+    values and are intended to be populated when a user account is created
+    or updated.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the default user schema.
+
+    Fields
+    ------
+    account_id : str
+        Unique identifier for the user account (typically the email).
+
+    account_type : str
+        Account tier of the user (e.g., basic, silver, gold, premium).
+
+    account_verified : str
+        Indicates whether the user account has been verified.
+
+    avatar : str
+        URL of the user's avatar image.
+
+    balance : str
+        Current user balance.
+
+    balance_history : str
+        Historical balance changes.
+
+    created_at : str
+        Timestamp of when the account was created.
+
+    deposits : str
+        JSON string representing deposit history.
+        Example: '{"pendings": [], "approved": []}'.
+
+    email : str
+        User email address.
+
+    fav_teams : str
+        List or serialized data of user's favorite teams.
+
+    first_name : str
+        User's first name.
+
+    has_code : str
+        Indicates whether the user has enabled TOTP authentication.
+
+    language : str
+        User's preferred language.
+
+    last_name : str
+        User's last name.
+
+    last_store_update : str
+        Timestamp of the last store update related to the user.
+
+    last_store_update_counter : str
+        Counter tracking the number of store updates.
+
+    marketing_accepted : str
+        Indicates if the user has accepted marketing communications.
+
+    password : str
+        User password (should be stored hashed).
+
+    profile : str
+        Profile metadata or serialized user profile information.
+
+    public_key : str
+        Public key used for TOTP authentication.
+
+    referred_by : str
+        Referral identifier of the user who referred this account.
+
+    referral_id : str
+        Unique 6-digit referral code assigned to the user.
+
+    role : str
+        Role assigned to the user (e.g., client, admin).
+
+    saves : str
+        Saved user data or preferences.
+
+    tax : str
+        Tax-related information for the user.
+
+    uid : str
+        Unique 40-character mixed identifier for the user.
+
+    user_name : str
+        Username displayed for the user.
+
+    verification_email_sent_count : str
+        Number of verification emails sent to the user.
+    """
+    return {
+        "account_id": "",  # their email address
+        "account_type": "",  # basic, silver, gold, premium
+        "account_verified": "",
+        "avatar": "",  # https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=F2C94C&color=fff&bold=true&rounded=true&format=svg
+        "balance": "",
+        "balance_history": "",
+        "created_at": "",
+        "deposits": "",  #'{"pendings": [], "approved": []}',
+        "email": "",
+        "fav_teams": "",
+        "first_name": "",
+        "has_code": "",  # totp
+        "language": "",  # users prefered language
+        "last_name": "",
+        "last_store_update": "",
+        "last_store_update_counter": "",
+        "marketing_accepted": "",
+        "password": "",
+        "profile": "",
+        "public_key": "",  # totp key
+        "referred_by": "",
+        "referral_id": "",  # 6 digits int
+        "role": "",  # client, admin
+        "saves": "",
+        "tax": "",
+        "uid": "",  # 40 digits mix
+        "user_name": "",
+        "verification_email_sent_count": "",
+    }
+
+
+def common_create_test_gemini_table(
+    table_id="mam_users",
+    name="mam_users",
+    keys=[
+        "account_id",
+        "account_verified",
+        "avatar",
+        "balance",
+        "balance_history",
+        "busines_tax",
+        "created_at",
+        "deposits",
+        "email",
+        "fav_teams",
+        "first_name",
+        "has_code",
+        "language",
+        "last_name",
+        "last_store_update",
+        "last_store_update_counter",
+        "marketing_accepted",
+        "password",
+        "profile",
+        "public_key",
+        "referred_by",
+        "role",
+        "saves",
+        "tax",
+        "uid",
+        "user_name",
+        "verification_email_sent_count",
+    ],
+):
+
+    tables_db = common_load_tables()
+
+    # Map every key to a 'string' type with a large size (acting like longtext)
+    # 16383 is the maximum size for a standard indexed string/varchar in many DBs
+    columns = []
+    for key in keys:
+        columns.append(
+            {
+                "key": key,
+                "type": "string",  # Using 'string' as the universal type
+                "size": 16383,  # Large size to handle long text
+                "required": False,
+            }
+        )
+
+    try:
+        result = tables_db.create_table(
+            database_id="66d68aff00057628676d",
+            table_id=table_id,
+            name=name,
+            columns=columns,
+            indexes=[],  # No indexes to ensure creation success for large strings
+        )
+        print("Success! Table created using 'string' types.")
+        return result
+    except Exception as e:
+        print(f"Error creating table: {e}")
+    except Exception as e:
+        print("Error creating table:", str(e))
+
+
 if __name__ == "__main__":
 
     pass
@@ -902,20 +1160,29 @@ if __name__ == "__main__":
     }
     row_id = "test_one_02"
 
-    send_email(
-        _from="tlovendo",
-        to="esteban.g.jandres@gmail.com",
-        subject="email_order",
-        lang="es",
-        data={
-            "app_name": "tlovendo",
-            "name": "Esteban Jandres",
-            "expiration_minutes": 5,
-            "theme": "#ff8f9c",
-            "order_id": common_generate_int_id(6),
-        },
-        test=True,
-    )
+    # print(common_create_avatar("esteban", "jandres"))
+    # common_create_test_gemini_table()
+
+    # print(generate_2fa_secret())
+    # topt = "CDXWW7QG3ZKFCM42NGUBRUWSTLK6MCAO"
+    # totp_generation = common_generate_totp(topt)
+    # print(totp_generation)
+    # print(common_verify_totp(topt, totp_generation))
+
+    # send_email(
+    #     _from="tlovendo",
+    #     to="esteban.g.jandres@gmail.com",
+    #     subject="email_order",
+    #     lang="es",
+    #     data={
+    #         "app_name": "tlovendo",
+    #         "name": "Esteban Jandres",
+    #         "expiration_minutes": 5,
+    #         "theme": "#ff8f9c",
+    #         "order_id": common_generate_int_id(6),
+    #     },
+    #     test=True,
+    # )
     # print(common_generate_int_id())
 
     # l = common_generate_payment_token(minutes=1)
