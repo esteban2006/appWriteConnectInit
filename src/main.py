@@ -108,7 +108,7 @@ def main(context):
                 try:
                     record = cf.common_get_record(
                         os.getenv("get_teams_in_league_collection_id"),
-                        f"mam_league_{data["leagueId"]}",
+                        f"mam_league_{data['leagueId']}",
                     )
 
                     if record and "data" in record:

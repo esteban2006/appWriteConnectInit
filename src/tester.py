@@ -76,7 +76,7 @@ def all_public():
 
 
 def teams_in_league():
-    print("sending get_world_list via REST API")
+    print("sending teams_in_league via REST API")
     payload = {
         "body": json.dumps(
             {
@@ -96,10 +96,11 @@ def teams_in_league():
 
     if response.status_code in [200, 201]:
         result = response.json()
+        pprint(result)
         print(
-            f"Function Output: \n\nFunction data type {type(result)} \n\nFunction inner data {type(result['responseBody'])}\n\n Raw data {response}"
+            f"Function Output: \n\nFunction data type {type(result)} \n\n"
+            "Function inner data {type(result['responseBody'])}\n\n Raw data {response}"
         )
-
         print(result["responseBody"])
     else:
         print(f"Error {response.status_code}:")
