@@ -77,7 +77,7 @@ def teams_of_league(data):
 def next_games(data):
     return fetch(
         os.getenv("next_games_collection_id"),
-        data["teamId"],
+        f"next_games_team_{data['teamId']}",
     )
 
 
