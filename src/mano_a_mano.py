@@ -3,13 +3,14 @@ import sys
 import os
 import requests
 import time
+import copy
 from pprint import pprint
 from collections import defaultdict
+from datetime import datetime
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import common_functions as cf
-
 
 # -------------------------------
 # Api football
@@ -115,15 +116,73 @@ def api_leagues_by_country():
     return sorted_data
 
 
-# -------------------------------
-# Route Update Map
-# -------------------------------
-update_maps = {
-    "leaguesByCountry": {"day": 1},
-    "allPublic": {"miminutesn": 5},
-    "getTeamOfLeague": {"day": 1},
-    "nextGames": {"day": 1},
-}
+def get_teams_of_league(self, league_id, season):
+    """
+    Fetches and returns the entire API response for teams of a specific league and season,
+    with the 'response' field sorted by team name.
+
+    Args:
+        league_id (int): ID of the league.
+        season (int): The season year (e.g., 2024).
+        football_api_key (str): API key for authentication.
+
+    Returns:
+        dict: The original API response with the 'response' field sorted by team name.
+    """
+
+    season = datetime.now().year - 1 if not season else season
+
+    apiUrl = os.getenv("apiFootball")
+    url = f"{apiUrl}teams"
+    headers = {
+        "x-rapidapi-host": "v3.football.api-sports.io",
+        "x-rapidapi-key": os.getenv("football_api_key"),
+    }
+    params = {
+        "league": league_id,
+        "season": season,
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        if "response" in data:
+            # Sort the 'response' field by team name
+            data["response"] = sorted(data["response"], key=lambda x: x["team"]["name"])
+
+            ADD_NEXT_ROUND_GAMES = (
+                os.getenv("add_next_round_games", "false").lower() == "true"
+            )
+
+            if ADD_NEXT_ROUND_GAMES:
+
+                # Create a new entry instead of modifying the existing one
+                sample = copy.deepcopy(
+                    data["response"][0]
+                )  # Deep copy to avoid modification issues
+                sample["team"]["code"] = "NR"
+                sample["team"]["name"] = "Next Round Games"
+                sample["team"]["id"] = cf.common_encode_dict(
+                    {
+                        "league_id": f"NR{league_id}",
+                        "teams_len": len(data["response"]) / 2,
+                    }
+                )
+                sample["team"][
+                    "logo"
+                ] = "https://sistemasintegradosao.com/assets/img/siaoLogos/logoX512.png"
+
+                # Insert the modified copy at the beginning
+                data["response"].insert(0, sample)
+
+            return data
+        else:
+            print("No team data found in the response.")
+            return {}
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+        return {}
 
 
 # -------------------------------
@@ -151,35 +210,105 @@ def decode_record(record):
 # -------------------------------
 # Database Fetch
 # -------------------------------
-def fetch(collection_id, document_id, update):
+
+jobs = {
+    "leaguesByCountry": {
+        "handler": api_leagues_by_country,
+        "kwargs": {},
+        "interval": {"hours": 24},
+        "cols_to_update": ["data", "today", "counter"],
+        "updates": True,
+    },
+    "allPublic": {
+        "handler": "api_leagues_by_country",
+        "kwargs": {},
+        "interval": {"minutes": 5},
+        "cols_to_update": ["data", "today", "counter"],
+        "updates": False,
+    },
+    "getTeamOfLeague": {
+        "handler": getTeamOfLeague,
+        "kwargs": {},
+        "interval": {"minutes": 5},
+        "cols_to_update": ["data", "today", "counter"],
+        "updates": True,
+    },
+    "all": {
+        "handler": "api_all",
+        "interval": None,
+    },
+}
+
+
+def fetch(collection_id: str, document_id: str, update: str):
+
+    job = jobs.get(update)
+    if not job:
+        return {"error": "Invalid update job"}, 400
+
     record = cf.common_get_record(collection_id, document_id)
+    if not record:
+        return {"error": "Record not found"}, 404
 
-    today = record.get("data", {}).get("today")
-    new_today = None
-    millis = str(cf.common_get_millis())
+    now = cf.common_get_millis()
 
-    if today is not None and not cf.common_ensure_millis(today):
-        new_today = millis
-        print(f"today will now be {new_today}")
+    data = record.get("data", {})
+    today = data.get("today")
+    counter = data.get("counter", 0)
 
-    else:
-        requireds_update = cf.common_time_passed(int(today), update_maps[update])
-        if requireds_update:
-            pass
+    interval = job.get("interval")
+    is_millis = cf.common_ensure_millis(today)
 
-    if not record or "data" not in record:
-        return ({"error": "Record not found"}, 404)
+    # Decide if update is required
+    should_update = True
 
-    return decode_record(record)
+    if interval and today and is_millis:
+        should_update = cf.common_time_passed(int(today), interval)
+
+    # Return cached data
+    if not should_update or job.get("updates") is False:
+        print(
+            f"[CACHE] {document_id} -> this function does updates {not job.get('updates')}"
+        )
+        return decode_record(record)
+
+    # Run job handler
+    handler = job["handler"]
+    args = job.get("args", ())
+    kwargs = job.get("kwargs", {})
+
+    result = handler(*args, **kwargs)
+
+    # Build update payload
+    payload = {}
+    cols = job.get("cols_to_update", [])
+
+    for col in cols:
+
+        if col == "data":
+            payload["data"] = cf.common_dict_str(result)
+
+        elif col == "today":
+            payload["today"] = str(now)
+
+        elif col == "counter":
+            payload["counter"] = counter + 1
+
+    # Update record if payload exists
+    if payload:
+        cf.common_update_record(collection_id, document_id, payload)
+
+    print(f"[UPDATED] {document_id}")
+
+    return result
 
 
 # -------------------------------
 # Route Handlers
 # -------------------------------
 def leagues_by_country(data):
-    return fetch(
-        os.getenv("leages_by_country_collection_id"), "leaguesInCountry", data["update"]
-    )
+    _id = os.getenv("leages_by_country_collection_id")
+    return fetch(_id, "leaguesInCountry", data["update"])
 
 
 def all_public(data):
@@ -215,6 +344,6 @@ routes = {
 
 if __name__ == "__main__":
 
-    # handler = routes.get("leaguesByCountry")
-    # handler({"update": "leaguesByCountry"})
-    api_leagues_by_country()
+    handler = routes.get("getTeamOfLeague")
+    handler({"update": "getTeamOfLeague"})
+    # api_leagues_by_country()
