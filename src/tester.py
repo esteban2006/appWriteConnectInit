@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from pprint import pprint
 import json
+import pkg_resources
 
 load_dotenv()
 url = f"https://cloud.appwrite.io/v1/functions/69ea79a30000a5d7b4e4/executions"
@@ -12,6 +13,31 @@ headers = {
     "X-Appwrite-Project": os.getenv("project_name"),
     # "X-Appwrite-Key": os.getenv("app_key"), # <--- THIS was missing
 }
+
+
+def requirements():
+
+    with open("../requirements.txt") as f:
+        packages = [line.strip().split("==")[0] for line in f if line.strip()]
+
+    installed = {pkg.key: pkg.version for pkg in pkg_resources.working_set}
+
+    output = []
+
+    for pkg in packages:
+        key = pkg.lower()
+        if key in installed:
+            output.append(f"{pkg}=={installed[key]}")
+        else:
+            output.append(pkg)
+
+    with open("../requirements_versioned.txt", "w") as f:
+        f.write("\n".join(output))
+
+    print("Versioned requirements saved to requirements_versioned.txt")
+
+
+# requirements()
 
 
 def get_world_list():
@@ -107,4 +133,4 @@ def teams_in_league():
         pprint(response.json())
 
 
-teams_in_league()
+# teams_in_league()
