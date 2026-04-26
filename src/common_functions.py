@@ -1141,6 +1141,80 @@ def common_create_test_gemini_table(
         print("Error creating table:", str(e))
 
 
+def ms_from_config(cfg):
+    if not cfg:
+        return 0
+
+    if "seconds" in cfg:
+        return cfg["seconds"] * 1000
+
+    if "minutes" in cfg:
+        return cfg["minutes"] * 60 * 1000
+
+    if "hours" in cfg:
+        return cfg["hours"] * 60 * 60 * 1000
+
+    if "days" in cfg:
+        return cfg["days"] * 24 * 60 * 60 * 1000
+
+    return 0
+
+
+def common_time_passed(last_timestamp_ms: int, cfg: dict) -> bool:
+    """
+    Check whether a specified time interval has passed since a given timestamp.
+
+    The function compares the current time with a previous timestamp and
+    determines if the configured interval has elapsed.
+
+    Example:
+        if common_time_passed(last_run, {"hours": 1}):
+            print("Run hourly task")
+
+    Args:
+        last_timestamp_ms (int):
+            The previous timestamp in milliseconds.
+
+        cfg (dict):
+            Configuration dictionary defining the time interval.
+            Supported keys:
+                - "seconds"
+                - "minutes"
+                - "hours"
+                - "days"
+
+            Example:
+                {"minutes": 5}
+
+    Returns:
+        bool:
+            True if the configured time interval has passed since
+            `last_timestamp_ms`, otherwise False.
+    """
+    now = int(time.time() * 1000)
+    interval = ms_from_config(cfg)
+
+    if not interval:
+        return False
+
+    return (now - last_timestamp_ms) >= interval
+
+
+def common_ensure_millis(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return False
+
+    now = int(time.time() * 1000)
+    year_2000 = 946684800000
+
+    if year_2000 <= value <= now:
+        return True
+
+    return False
+
+
 if __name__ == "__main__":
 
     pass
@@ -1221,10 +1295,12 @@ if __name__ == "__main__":
     #        data=create_record_data, row_id=row_id))
     # pprint(common_create_record("security_db", create_record_data, row_id=row_id))
 
-    # record = common_get_record(
-    #     os.getenv("get_teams_in_league_collection_id"),
-    #     f"mam_league_10",
-    # )
+    record = common_get_record(
+        os.getenv("get_teams_in_league_collection_id"),
+        f"mam_league_10",
+    )
+    pprint(record)
+
     # response_data = record["data"]["data"]
     # first_decode = json.loads(response_data)
     # print(first_decode)

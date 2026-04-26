@@ -3,7 +3,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import common_functions as cf
+import mano_a_mano as mam
 
 
 # -------------------------------
@@ -23,76 +23,6 @@ def response(data, status=200):
 
 
 # -------------------------------
-# Request Parser
-# -------------------------------
-def parse_body(body):
-    if isinstance(body, str):
-        try:
-            return json.loads(body)
-        except:
-            return {}
-    return body or {}
-
-
-# -------------------------------
-# Decode Stored JSON
-# -------------------------------
-def decode_record(record):
-    try:
-        return json.loads(record["data"]["data"])
-    except:
-        return record["data"]["data"]
-
-
-# -------------------------------
-# Database Fetch
-# -------------------------------
-def fetch(collection_id, document_id):
-    record = cf.common_get_record(collection_id, document_id)
-
-    if not record or "data" not in record:
-        return response({"error": "Record not found"}, 404)
-
-    return response(decode_record(record))
-
-
-# -------------------------------
-# Route Handlers
-# -------------------------------
-def leagues_by_country(data):
-    return fetch("6766ef78000d7daec880", "leaguesInCountry")
-
-
-def all_public(data):
-    return fetch("mam_public_all", "all_public_1")
-
-
-def teams_of_league(data):
-    return fetch(
-        os.getenv("get_teams_in_league_collection_id"),
-        f"mam_league_{data['leagueId']}",
-    )
-
-
-def next_games(data):
-    return fetch(
-        os.getenv("next_games_collection_id"),
-        f"next_games_team_{data['teamId']}",
-    )
-
-
-# -------------------------------
-# Route Map
-# -------------------------------
-ROUTES = {
-    "leaguesByCountry": leagues_by_country,
-    "allPublic": all_public,
-    "getTeamOfLeague": teams_of_league,
-    "nextGames": next_games,
-}
-
-
-# -------------------------------
 # Main Function
 # -------------------------------
 def main(context):
@@ -102,24 +32,36 @@ def main(context):
     if context.req.method not in ["GET", "POST"]:
         return response({"error": "Method not allowed"}, 405)
 
-    data = parse_body(context.req.body)
+    data = mam.parse_body(context.req.body)
+    update = data.get("update", "no")
 
-    try:
+    if update not in mam.routes:
+        return response({"error": "Update not available at this time"}, 405)
 
-        update = data.get("update")
+    # -------------------------------
+    # Working with mano a mano only
+    # -------------------------------
 
-        handler = ROUTES.get(update)
+    if update in mam.routes:
 
-        if not handler:
-            return response({"error": "Invalid update parameter"}, 400)
+        try:
 
-        return handler(data)
+            handler = mam.routes.get(update)
 
-    except Exception as e:
+            if not handler:
+                return response({"error": "Invalid update parameter"}, 400)
 
-        context.error(str(e))
+            return response(handler(data))
 
-        return response(
-            {"error": "Internal server error", "details": str(e)},
-            500,
-        )
+        except Exception as e:
+
+            context.error(str(e))
+
+            return response(
+                {"error": "Internal server error", "details": str(e)},
+                500,
+            )
+
+
+if __name__ == "__main__":
+    pass
