@@ -51,7 +51,10 @@ def main(context):
             if not handler:
                 return response({"error": "Invalid update parameter"}, 400)
 
+            response = response(handler(data))
+            print (f"response sending out: {response} ")
             return response(handler(data))
+        
 
         except Exception as e:
 
