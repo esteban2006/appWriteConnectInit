@@ -53,7 +53,7 @@ def main(context):
 
             to_sent = handler(data)
             print (f"response sending out: {to_sent} ")
-            return to_sent
+            return response(to_sent)
         
 
         except Exception as e:
