@@ -116,7 +116,83 @@ def api_leagues_by_country():
     return sorted_data
 
 
-def get_teams_of_league(self, league_id, season):
+def get_all_public_saves(fixed: bool = False):
+    """
+    Retrieve public saves from the database.
+
+    Parameters
+    ----------
+    fixed : bool, optional
+        - False (default):
+            Returns the aggregated public saves stored in the
+            `mam_public_all` table under row `all_public_1`.
+            The stored JSON string is parsed and returned as a dictionary.
+
+        - True:
+            Retrieves all rows from the `mam_public_saves` table,
+            parses the JSON stored in `data.data`, and returns the
+            results as a dictionary keyed by each save `id`.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the public saves.
+
+        When `fixed=False`:
+            {
+                "SAVE_ID": {save_data},
+                ...
+            }
+
+        When `fixed=True`:
+            {
+                "SAVE_ID": {save_data},
+                ...
+            }
+
+        Returns an empty dictionary `{}` if no records are found.
+    """
+
+    if not fixed:
+        table = "mam_public_all"
+        print (f"[EXECUTING FIXED ] Table -> {table}")
+        record = cf.common_get_record("mam_public_all", "all_public_1")
+
+        if not record:
+            return {}
+
+        data = record.get("data", {}).get("data")
+
+        if isinstance(data, str):
+            return json.loads(data)
+
+        return data or {}
+
+    else:
+        table = "mam_public_saves"
+        print (f"[EXECUTING FIXED ] Table {table}")
+        records = cf.common_get_all_records("mam_public_saves")
+
+        result = {}
+
+        for r in records:
+            data_field = r.get("data", {}).get("data")
+
+            if isinstance(data_field, str):
+                try:
+                    parsed = json.loads(data_field)
+                except json.JSONDecodeError:
+                    continue
+            else:
+                parsed = data_field
+
+            if isinstance(parsed, dict) and "id" in parsed:
+                result[parsed["id"]] = parsed
+
+        return result
+
+
+def get_teams_of_league(league_id, season):
     """
     Fetches and returns the entire API response for teams of a specific league and season,
     with the 'response' field sorted by team name.
@@ -185,6 +261,7 @@ def get_teams_of_league(self, league_id, season):
         return {}
 
 
+
 # -------------------------------
 # Request Parser
 # -------------------------------
@@ -220,14 +297,14 @@ jobs = {
         "updates": True,
     },
     "allPublic": {
-        "handler": "api_leagues_by_country",
+        "handler": get_all_public_saves,
         "kwargs": {},
         "interval": {"minutes": 5},
         "cols_to_update": ["data", "today", "counter"],
         "updates": False,
     },
     "getTeamOfLeague": {
-        "handler": getTeamOfLeague,
+        "handler": "getTeamOfLeague",
         "kwargs": {},
         "interval": {"minutes": 5},
         "cols_to_update": ["data", "today", "counter"],
@@ -241,65 +318,103 @@ jobs = {
 
 
 def fetch(collection_id: str, document_id: str, update: str):
+    """
+    Fetches a record, decides whether it needs updating based on a job config,
+    optionally runs a handler, and updates the database.
+    """
 
+    # Get the job configuration based on the "update" key
     job = jobs.get(update)
+
+    # If no job exists for this update type, return an error
     if not job:
         return {"error": "Invalid update job"}, 400
 
+    # Retrieve the record from the database
     record = cf.common_get_record(collection_id, document_id)
+
+    # If record does not exist, return 404
     if not record:
         return {"error": "Record not found"}, 404
 
+    # Current timestamp in milliseconds
     now = cf.common_get_millis()
 
+    # Extract data section safely (default to empty dict if missing)
     data = record.get("data", {})
+
+    # Last update timestamp stored in record
     today = data.get("today")
+
+    # Counter used for tracking how many updates occurred
     counter = data.get("counter", 0)
 
+    # Job-defined update interval (e.g. every X ms/mins)
     interval = job.get("interval")
+
+    # Validate that stored timestamp is in a usable format (millis-safe check)
     is_millis = cf.common_ensure_millis(today)
 
-    # Decide if update is required
+    # Default assumption: we should update
     should_update = True
 
+    # If we have a valid interval and valid timestamp, check if enough time passed
     if interval and today and is_millis:
         should_update = cf.common_time_passed(int(today), interval)
 
-    # Return cached data
+    # ------------------------------------------------------------
+    # CACHE SHORT-CIRCUIT:
+    # If update is not needed OR job is explicitly disabled,
+    # return cached record without running handler
+    # ------------------------------------------------------------
     if not should_update or job.get("updates") is False:
         print(
             f"[CACHE] {document_id} -> this function does updates {not job.get('updates')}"
         )
         return decode_record(record)
 
-    # Run job handler
-    handler = job["handler"]
-    args = job.get("args", ())
-    kwargs = job.get("kwargs", {})
+    # ------------------------------------------------------------
+    # RUN JOB HANDLER:
+    # Execute the function associated with this update job
+    # ------------------------------------------------------------
+    handler = job["handler"]  # function to execute
+    args = job.get("args", ())  # positional arguments
+    kwargs = job.get("kwargs", {})  # keyword arguments
 
+    # Execute handler and get result
     result = handler(*args, **kwargs)
 
-    # Build update payload
+    # ------------------------------------------------------------
+    # BUILD UPDATE PAYLOAD:
+    # Determine which fields should be updated in the DB
+    # ------------------------------------------------------------
     payload = {}
     cols = job.get("cols_to_update", [])
 
     for col in cols:
 
+        # Update "data" field with serialized result
         if col == "data":
             payload["data"] = cf.common_dict_str(result)
 
+        # Update timestamp to current time
         elif col == "today":
             payload["today"] = str(now)
 
+        # Increment update counter
         elif col == "counter":
             payload["counter"] = counter + 1
 
-    # Update record if payload exists
+    # ------------------------------------------------------------
+    # APPLY UPDATE TO DATABASE:
+    # Only update if there is something to write
+    # ------------------------------------------------------------
     if payload:
         cf.common_update_record(collection_id, document_id, payload)
 
     print(f"[UPDATED] {document_id}")
 
+    # Return fresh result from handler
     return result
 
 
@@ -344,6 +459,7 @@ routes = {
 
 if __name__ == "__main__":
 
-    handler = routes.get("getTeamOfLeague")
-    handler({"update": "getTeamOfLeague"})
+    handler = routes.get("allPublic")
+    pprint (handler({"update": "allPublic"}))
     # api_leagues_by_country()
+    # pprint (get_all_public_saves(False))
