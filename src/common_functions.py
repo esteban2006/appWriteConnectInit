@@ -72,7 +72,8 @@ import struct
 from pprint import pprint
 from pprint import pformat
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+
 from appwrite.services.tables_db import TablesDB
 from appwrite.client import Client
 from appwrite.services.databases import Databases  # Import the Databases class
@@ -648,6 +649,64 @@ def common_get_record(table_id: str, row_id: str) -> Optional[Dict[str, Any]]:
 
         traceback.print_exc()
         return None
+
+
+def common_get_all_records(table_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    try:
+        db_id = os.getenv("db_id")
+        if not db_id:
+            raise ValueError("Missing environment variable: db_id")
+
+        tables = common_load_tables("tables")
+
+        offset = 0
+        all_rows = []
+
+        while True:
+            response = tables.list_rows(
+                database_id=db_id,
+                table_id=table_id,
+                queries=[
+                    Query.limit(limit),
+                    Query.offset(offset)
+                ]
+            )
+
+            rows = response.get("rows", []) if isinstance(response, dict) else getattr(response, "rows", [])
+
+            if not rows:
+                break
+
+            for result in rows:
+
+                # Normalize object → dict
+                if hasattr(result, "to_dict"):
+                    data_dict = result.to_dict()
+
+                elif hasattr(result, "model_dump"):
+                    data_dict = result.model_dump()
+
+                elif hasattr(result, "__dict__"):
+                    data_dict = {
+                        k: v for k, v in result.__dict__.items()
+                        if not k.startswith("_")
+                    }
+
+                else:
+                    data_dict = dict(result)
+
+                all_rows.append(_clean_document(data_dict))
+
+            if len(rows) < limit:
+                break
+
+            offset += limit
+
+        return all_rows
+
+    except Exception as e:
+        print(f"Error retrieving rows: {e}")
+        return []
 
 
 def common_generate_id(prefix="333", id_len=40):
@@ -1234,6 +1293,8 @@ if __name__ == "__main__":
     }
     row_id = "test_one_02"
 
+    pprint(common_get_all_records("mam_public_saves"))
+
     # print(common_create_avatar("esteban", "jandres"))
     # common_create_test_gemini_table()
 
@@ -1295,11 +1356,11 @@ if __name__ == "__main__":
     #        data=create_record_data, row_id=row_id))
     # pprint(common_create_record("security_db", create_record_data, row_id=row_id))
 
-    record = common_get_record(
-        os.getenv("get_teams_in_league_collection_id"),
-        f"mam_league_10",
-    )
-    pprint(record)
+    # record = common_get_record(
+    #     os.getenv("get_teams_in_league_collection_id"),
+    #     f"mam_league_10",
+    # )
+    # pprint(record)
 
     # response_data = record["data"]["data"]
     # first_decode = json.loads(response_data)
