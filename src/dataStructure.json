@@ -1,0 +1,63 @@
+{
+   "escrow_game":{
+      "id":"game_123",
+      "fixture_id":1208691,
+      "creator":"userA@email.com",
+      "taker":null,
+      "creator_side":"home",
+      "taker_side":"away",
+      "save_amount":20,
+      "save_type":"public",
+      "status":"open",
+      "version":1,
+      "lock":{
+         "locked_by":null,
+         "locked_at":null,
+         "expires_at":null
+      },
+      "payout":{
+         "status":"pending",
+         "winner":null,
+         "amount":null
+      },
+      "timestamps":{
+         "created_at":1738429244087
+      },
+      "creator_team_id":529,
+      "taker_team_id":542, 
+      "game_data" : {}
+   },
+   "escrow_transactions":{
+      "game_id":"game_123",
+      "creator":"userA@email.com",
+      "taker":"userB@email.com",
+      "amount":20,
+      "status":"held | released | refunded",
+      "winner":null,
+      "created_at":1738429244
+   },
+   "wallet_transation":{
+      "id":"tx_9FJ3S",
+      "user_id":"user_123",
+      "type": "deposit | withdraw | escrow_lock | escrow_release | refund | fee" ,
+      "amount":20,
+      "balance_before":120,
+      "balance_after":100,
+      "reference_id":"game_ABC",
+      "created_at":1738429244087
+   },
+   "fixtures":{
+      "fixture_id":1208691,
+      "league_id":140,
+      "league_name":"La Liga",
+      "home_team_id":529,
+      "home_team_name":"Barcelona",
+      "away_team_id":542,
+      "away_team_name":"Alaves",
+      "start_timestamp":1738501200,
+      "second_half_timestamp":1738504800,
+      "status":"scheduled | live | finished",
+      "winner_team_id":529,
+      "updated_at":1738508800
+   }
+}
