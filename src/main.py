@@ -51,9 +51,9 @@ def main(context):
             if not handler:
                 return response({"error": "Invalid update parameter"}, 400)
 
-            response = response(handler(data))
-            print (f"response sending out: {response} ")
-            return response(handler(data))
+            to_sent = handler(data)
+            print (f"response sending out: {to_sent} ")
+            return to_sent
         
 
         except Exception as e:
