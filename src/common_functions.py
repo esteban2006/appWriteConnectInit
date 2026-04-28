@@ -1327,7 +1327,7 @@ if __name__ == "__main__":
     }
     row_id = "test_one_02"
 
-    pprint(common_get_all_records("mam_public_saves"))
+    # pprint(common_get_all_records("mam_public_saves"))
 
     # print(common_create_avatar("esteban", "jandres"))
     # common_create_test_gemini_table()

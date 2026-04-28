@@ -714,14 +714,14 @@ if __name__ == "__main__":
 
     pass
 
-    for target in routes:
-        if target in routes:
+    # for target in routes:
+    #     if target in routes:
 
-            # target = "leaguesByCountry"
-            leagueId = 2
-            teamId = 180
+    #         # target = "leaguesByCountry"
+    #         leagueId = 2
+    #         teamId = 180
 
-            handler = routes.get(target)
-            print (handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
+    #         handler = routes.get(target)
+    #         print (handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
             # api_leagues_by_country()
             # pprint (get_all_public_saves(False))
