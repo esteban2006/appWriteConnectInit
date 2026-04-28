@@ -98,6 +98,40 @@ env_loading_key = "secret_jwt"
 env_loaded = os.getenv(env_loading_key)
 # print(f"env_loaded at common functions {type(env_loaded)}")
 
+def commond_decode_data(encoded):
+        # Check if the encoded token is None or empty
+        if not encoded:
+            raise ValueError("The JWT token provided is empty or None.")
+
+        public_key = os.getenv("public_key")
+
+        if not public_key:
+            raise ValueError("Missing PUBLIC_KEY in environment variables")
+
+        # Convert \n to actual newlines
+        public_key_bytes = public_key.replace("\\n", "\n").encode()
+
+        try:
+            # Decode JWT with proper error handling
+            decoded_payload = jwt.decode(
+                encoded, public_key_bytes, algorithms=["RS256"])
+            return decoded_payload
+
+        except DecodeError:
+            raise ValueError(
+                "Invalid JWT format. Ensure the token is complete and correctly structured.")
+
+        except ExpiredSignatureError:
+            raise ValueError(
+                "JWT token has expired. Please obtain a new token.")
+
+        except InvalidTokenError:
+            raise ValueError(
+                "JWT token is invalid. It may be tampered with or corrupted.")
+
+        except Exception as e:
+            raise ValueError(
+                f"An unexpected error occurred while decoding JWT: {str(e)}")
 
 def common_check_rate_limit(
     ip: str, action: str, window_seconds: int = 60
