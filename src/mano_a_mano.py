@@ -40,6 +40,8 @@ api_url = os.getenv("apiFootball")
 football_api_key = os.getenv("football_api_key")
 
 
+
+
 def api_leagues_by_country():
     """
     Fetches and organizes football leagues by country from the API.
@@ -258,9 +260,7 @@ def get_teams_of_league(league_id):
             if ADD_NEXT_ROUND_GAMES:
 
                 # Create a new entry instead of modifying the existing one
-                sample = copy.deepcopy(
-                    data["response"][0]
-                )  # Deep copy to avoid modification issues
+                sample = copy.deepcopy(data["response"][0])  
                 sample["team"]["code"] = "NR"
                 sample["team"]["name"] = "Next Round Games"
                 sample["team"]["id"] = cf.common_encode_dict(
@@ -285,9 +285,9 @@ def get_teams_of_league(league_id):
         return {}
 
 
-def get_next_round(league_id=2, teams_len=20):
+def get_next_round(league_id=2 ):
         
-        
+        teams_len=20
 
         print(f"getting next round games for {league_id} and len {teams_len}")
         if "NR" in str(league_id):
@@ -295,6 +295,16 @@ def get_next_round(league_id=2, teams_len=20):
 
         print(
             f"getting next round games for second time {league_id} and len {teams_len}")
+        
+
+        next_round_recods = cf.common_get_record(os.getenv("get_teams_in_league_collection_id"), league_id)
+
+
+        print ("next_round_recods")
+        pprint (next_round_recods)
+        
+
+
 
         url = f"{api_url}fixtures?league={league_id}&next={teams_len + (teams_len // 2)}"
         headers = {
@@ -405,7 +415,7 @@ def get_next_games(team_id=50 ):
             data = cf.commond_decode_data(team_id)
             league_id = data["league_id"]
             teams_len = int(data["teams_len"])
-            return get_next_round(league_id, teams_len)
+            return get_next_round(league_id)
 
         # API details
         url = f"{api_url}fixtures"
@@ -564,103 +574,91 @@ jobs = {
 
 def fetch(collection_id: str, document_id: str, update: str):
     """
-    Fetches a record, decides whether it needs updating based on a job config,
-    optionally runs a handler, and updates the database.
+    Generic cache fetcher with auto-create and timed updates.
     """
 
-    # Get the job configuration based on the "update" key
+    now = cf.common_get_millis()
     job = jobs.get(update)
 
-    # If no job exists for this update type, return an error
     if not job:
         return {"error": "Invalid update job"}, 400
 
-    # Retrieve the record from the database
-    print (f"[AT FETCH] collection_id {collection_id} document_id {document_id}")
+    print(f"\n[AT FETCH]\tcollection_id {collection_id}\tdocument_id {document_id}\n\n")
+
     record = cf.common_get_record(collection_id, document_id)
 
-    # If record does not exist, return 404
-    if not record:
-        return {"error": "Record not found"}, 404
+    handler = job["handler"]
+    args = job.get("args", ())
+    kwargs = job.get("kwargs", {})
+    cols = job.get("cols_to_update", [])
 
-    # Current timestamp in milliseconds
-    now = cf.common_get_millis()
-
-    # Extract data section safely (default to empty dict if missing)
-    data = record.get("data", {})
-
-    # Last update timestamp stored in record
-    today = data.get("today")
-
-    # Counter used for tracking how many updates occurred
-    counter = data.get("counter", 0)
-
-    # Job-defined update interval (e.g. every X ms/mins)
     interval = job.get("interval")
-
-    # Validate that stored timestamp is in a usable format (millis-safe check)
-    is_millis = cf.common_ensure_millis(today)
-
-    # Default assumption: we should update
-    should_update = True
-
-    # If we have a valid interval and valid timestamp, check if enough time passed
-    if interval and today and is_millis:
-        should_update = cf.common_time_passed(int(today), interval)
+    updates_enabled = job.get("updates", True)
 
     # ------------------------------------------------------------
-    # CACHE SHORT-CIRCUIT:
-    # If update is not needed OR job is explicitly disabled,
-    # return cached record without running handler
+    # RECORD EXISTS → CHECK CACHE
     # ------------------------------------------------------------
-    if not should_update or job.get("updates") is False:
-        print(
-            f"[CACHE] {document_id} -> this function does updates by rule of by interval {not job.get('updates')}"
-        )
-        return decode_record(record)
+    if record:
+
+        today = record.get("today")
+        counter = record.get("counter", 0)
+
+        is_millis = cf.common_ensure_millis(today)
+        should_update = True
+
+        if interval and today and is_millis:
+            should_update = cf.common_time_passed(int(today), interval)
+
+        if not should_update or not updates_enabled:
+            print(f"[CACHE] {document_id}")
+            return decode_record(record)
+
+    else:
+        counter = 0
 
     # ------------------------------------------------------------
-    # RUN JOB HANDLER:
-    # Execute the function associated with this update job
+    # RUN HANDLER
     # ------------------------------------------------------------
-    handler = job["handler"]  # function to execute
-    args = job.get("args", ())  # positional arguments
-    kwargs = job.get("kwargs", {})  # keyword arguments
-
-    # Execute handler and get result
     result = handler(*args, **kwargs)
 
+    if not result:
+        return {"error": "Handler returned no data"}, 500
+
     # ------------------------------------------------------------
-    # BUILD UPDATE PAYLOAD:
-    # Determine which fields should be updated in the DB
+    # BUILD PAYLOAD
     # ------------------------------------------------------------
     payload = {}
-    cols = job.get("cols_to_update", [])
 
     for col in cols:
 
-        # Update "data" field with serialized result
         if col == "data":
             payload["data"] = cf.common_dict_str(result)
 
-        # Update timestamp to current time
         elif col == "today":
             payload["today"] = str(now)
 
-        # Increment update counter
         elif col == "counter":
             payload["counter"] = counter + 1
 
     # ------------------------------------------------------------
-    # APPLY UPDATE TO DATABASE:
-    # Only update if there is something to write
+    # WRITE DATABASE
     # ------------------------------------------------------------
-    if payload:
+    if record:
         cf.common_update_record(collection_id, document_id, payload)
+        print(f"[UPDATED] {document_id}")
 
-    print(f"[UPDATED] {document_id}")
+    else:
 
-    # Return fresh result from handler
+        _new_doc_id = "next_games_team_"
+        if _new_doc_id in document_id:
+            _name = document_id.split(_new_doc_id)[1]
+            print (f"_name {_name}")
+            if len(str(_name)) > 10:
+                document_id = f"{_new_doc_id}{cf.commond_decode_data(_name)['league_id']}"
+
+        cf.common_create_record(collection_id, payload, document_id)
+        print(f"[CREATED] {document_id}")
+
     return result
 
 
@@ -690,7 +688,19 @@ def teams_of_league(data):
 
 def next_games(data):
 
-    jobs[data['update']]['kwargs']['team_id']  = data['teamId']
+    team_id = data['teamId']
+    jobs[data['update']]['kwargs']['team_id']  = team_id
+
+    # if len(str(team_id)) > 10:  # if id > 10 this meand i am decodeing a jwt
+
+    #     # {'leagueId': 331,
+    #     # 'teamId': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWFndWVfaWQiOiJOUjIiLCJ0ZWFtc19sZW4iOjQxLjB9.IG9TaXjg05K_vF6FPJuAkYa8lISGaP2qUmYR_OGkZqo',
+    #     # 'update': 'nextGames'}
+
+    #     # this data {'league_id': 'NR2', 'teams_len': 41.0}
+
+    #     data = cf.commond_decode_data(team_id)
+    #     return (get_next_round(data['league_id']))
 
     return fetch(
         os.getenv("next_games_collection_id"),
@@ -714,14 +724,16 @@ if __name__ == "__main__":
 
     pass
 
-    # for target in routes:
-    #     if target in routes:
+ 
 
-    #         # target = "leaguesByCountry"
-    #         leagueId = 2
-    #         teamId = 180
+    for target in routes:
+        if target == "nextGames":
 
-    #         handler = routes.get(target)
-    #         print (handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
+            # target = "leaguesByCountry"
+            leagueId = 331
+            teamId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWFndWVfaWQiOiJOUjIiLCJ0ZWFtc19sZW4iOjQxLjB9.IG9TaXjg05K_vF6FPJuAkYa8lISGaP2qUmYR_OGkZqo"
+
+            handler = routes.get(target)
+            print (handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
             # api_leagues_by_country()
             # pprint (get_all_public_saves(False))
