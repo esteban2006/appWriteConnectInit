@@ -1,7 +1,7 @@
 import json
 import sys
 import os
-from pprint import pprint 
+from pprint import pprint
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import mano_a_mano as mam
@@ -34,10 +34,10 @@ def main(context):
         return response({"error": "Method not allowed"}, 405)
 
     data = mam.parse_body(context.req.body)
-    
+
     update = data.get("update", "no")
 
-    pprint (data)
+    pprint(data)
 
     if update not in mam.routes:
         return response({"error": "Update not available at this time"}, 405)
@@ -56,9 +56,14 @@ def main(context):
                 return response({"error": "Invalid update parameter"}, 400)
 
             to_sent = handler(data)
-            print (f"response sending out: {to_sent} ")
+
+            if isinstance(to_sent, tuple):
+                body, status = to_sent
+                print(f"response sending out: {body}\nStatus {status} ")
+                return response(body, status)
+
+            print(f"response sending out: {to_sent} ")
             return response(to_sent)
-        
 
         except Exception as e:
 
