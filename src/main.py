@@ -1,6 +1,7 @@
 import json
 import sys
 import os
+from pprint import pprint 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import mano_a_mano as mam
@@ -33,7 +34,10 @@ def main(context):
         return response({"error": "Method not allowed"}, 405)
 
     data = mam.parse_body(context.req.body)
+    
     update = data.get("update", "no")
+
+    pprint (data)
 
     if update not in mam.routes:
         return response({"error": "Update not available at this time"}, 405)

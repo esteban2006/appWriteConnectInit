@@ -7,7 +7,7 @@ import copy
 from pprint import pprint
 from collections import defaultdict
 from datetime import datetime
-
+import re
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import common_functions as cf
@@ -15,6 +15,29 @@ import common_functions as cf
 # -------------------------------
 # Api football
 # -------------------------------
+
+live_by_game_status = [
+            "First Half",
+            "Kick Off",
+            "Halftime",
+            "Second Half",
+            "2nd Half Started",
+            "Extra Time",
+            "Break Time",
+            "Penalty In Progress",
+            "In Progress",
+        ]
+not_live_by_game_status = [
+            "Match Finished",
+            "Match Postponed",
+            "Match Cancelled",
+            "Match Abandoned",
+            "Technical Loss",
+            "WalkOver",
+        ]
+
+api_url = os.getenv("apiFootball")
+football_api_key = os.getenv("football_api_key")
 
 
 def api_leagues_by_country():
@@ -31,11 +54,10 @@ def api_leagues_by_country():
         list: A sorted list of leagues grouped by country, or None if data retrieval fails.
     """
 
-    apiUrl = os.getenv("apiFootball")
-    url = f"{apiUrl}leagues"
+    url = api_url
     headers = {
         "x-rapidapi-host": "v3.football.api-sports.io",
-        "x-rapidapi-key": os.getenv("football_api_key"),
+        "x-rapidapi-key": football_api_key,
     }
 
     # Fetch API data with retries
@@ -192,7 +214,7 @@ def get_all_public_saves(fixed: bool = False):
         return result
 
 
-def get_teams_of_league(league_id, season):
+def get_teams_of_league(league_id):
     """
     Fetches and returns the entire API response for teams of a specific league and season,
     with the 'response' field sorted by team name.
@@ -206,13 +228,15 @@ def get_teams_of_league(league_id, season):
         dict: The original API response with the 'response' field sorted by team name.
     """
 
-    season = datetime.now().year - 1 if not season else season
+    print (f"get_teams_of_league with league {league_id}")
+
+    season = datetime.now().year - 1 
 
     apiUrl = os.getenv("apiFootball")
     url = f"{apiUrl}teams"
     headers = {
         "x-rapidapi-host": "v3.football.api-sports.io",
-        "x-rapidapi-key": os.getenv("football_api_key"),
+        "x-rapidapi-key": football_api_key,
     }
     params = {
         "league": league_id,
@@ -261,6 +285,224 @@ def get_teams_of_league(league_id, season):
         return {}
 
 
+def get_next_round(league_id=2, teams_len=20):
+        
+        
+
+        print(f"getting next round games for {league_id} and len {teams_len}")
+        if "NR" in str(league_id):
+            league_id = re.sub(r"\D", "", league_id)
+
+        print(
+            f"getting next round games for second time {league_id} and len {teams_len}")
+
+        url = f"{api_url}fixtures?league={league_id}&next={teams_len + (teams_len // 2)}"
+        headers = {
+            "x-rapidapi-host": "v3.football.api-sports.io",
+            "x-rapidapi-key": football_api_key,
+        }
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            print(
+                f"Error: Unable to fetch leagues. Status code: {response.status_code}")
+            print(f"Response: {response.text}")
+
+            # If we've reached this point, return the default dict
+            return {
+                "future": {
+                    "get": "fixtures",
+                    "parameters": {
+                        "team": f"NR{league_id}",
+                        "next": 1
+                    },
+                    "errors": [],
+                    "results": 1,
+                    "paging": {
+                        "current": 1,
+                        "total": 1
+                    },
+                    "response": []
+                },
+                "past": {
+                    "get": "fixtures",
+                    "parameters": {
+                        "team": f"NR{league_id}",
+                        "next": 1
+                    },
+                    "errors": [],
+                    "results": 0,
+                    "paging": {
+                        "current": 1,
+                        "total": 1
+                    },
+                    "response": []
+                }
+            }
+
+        data = response.json()
+
+        if not data.get("response"):
+            print("No data found for the specified league and season.")
+            # Iterate over decreasing team lengths
+            for new_teams_len in [32, 16, 8, 4, 2, 1]:
+                if new_teams_len < teams_len:
+                    return get_next_round(league_id, new_teams_len)
+
+        mid_point = len(data["response"]) // 2
+
+        return {
+            "future": {
+                "get": "fixtures",
+                "parameters": {
+                    "team": f"NR{league_id}",
+                    "next": f"{mid_point}"
+                },
+                "errors": [],
+                "results": mid_point*2,
+                "paging": {
+                    "current": 1,
+                    "total": 1
+                },
+                "response": data["response"]
+            },
+            "past": {
+                "get": "fixtures",
+                "parameters": {
+                    "team": f"NR{league_id}",
+                    "next": f"{mid_point}"
+                },
+                "errors": [],
+                "results": 0,
+                "paging": {
+                    "current": 1,
+                    "total": 1
+                },
+                "response": []
+            }
+        }
+
+
+def get_next_games(team_id=50 ):
+        """
+        Fetches the past and future games of a given team and reorders the 'response'
+        field to prioritize fixtures with 'status.long' in the 'live_by_game_status' list.
+
+        Args:
+            team_id (int): ID of the team.
+            next_len (int): Number of past and future games to fetch.
+
+        Returns:
+            dict: A dictionary containing the reordered 'past' and 'future' fixtures.
+        """
+
+        print(f"\n\nget_next_games {team_id}")
+        next_len=3
+
+
+        if len(str(team_id)) > 10:  # if id > 10 this meand i am decodeing a jwt
+            data = cf.commond_decode_data(team_id)
+            league_id = data["league_id"]
+            teams_len = int(data["teams_len"])
+            return get_next_round(league_id, teams_len)
+
+        # API details
+        url = f"{api_url}fixtures"
+        headers = {
+            "x-rapidapi-host": "v3.football.api-sports.io",
+            "x-rapidapi-key": football_api_key,
+        }
+
+        # Parameters for past and future fixtures
+        params_past = {"team": team_id, "last": next_len}
+        params_future = {"team": team_id, "next": next_len}
+
+        # Retry logic for past fixtures
+        response_past = None
+        for attempt in range(5):
+            response_past = requests.get(
+                url, headers=headers, params=params_past).json()
+            if "response" in response_past:
+                break
+            print(
+                f"get_next_games Attempt {attempt + 1} (past fixtures): Retrying in 1 second..."
+            )
+            time.sleep(1)
+        if "response" not in response_past:
+            return {"error": "Failed to fetch past fixtures after 5 attempts."}
+
+        # Retry logic for future fixtures
+        response_future = None
+        for attempt in range(5):
+            response_future = requests.get(
+                url, headers=headers, params=params_future
+            ).json()
+            if "response" in response_future:
+                break
+            print(
+                f"Attempt {attempt + 1} (future fixtures): Retrying in 1 second...")
+            time.sleep(1)
+        if "response" not in response_future:
+            return {"error": "Failed to fetch future fixtures after 5 attempts."}
+
+        # Define live game statuses
+        # live_by_game_status = [
+        #     "First Half",
+        #     "Kick Off",
+        #     "Halftime",
+        #     "Second Half",
+        #     "2nd Half Started",
+        #     "Extra Time",
+        #     "Break Time",
+        #     "Penalty In Progress",
+        #     "In Progress",
+        # ]
+
+        def reorder_fixtures(fixture_list):
+            """Reorder fixtures to move live games to the beginning."""
+            live_fixtures = [
+                f
+                for f in fixture_list
+                if f["fixture"]["status"]["long"] in live_by_game_status
+            ]
+            other_fixtures = [
+                f
+                for f in fixture_list
+                if f["fixture"]["status"]["long"] not in live_by_game_status
+            ]
+            return live_fixtures + other_fixtures
+
+        # Reorder the response field if it exists
+        if "response" in response_past:
+            response_past["response"] = reorder_fixtures(
+                response_past["response"])
+        if "response" in response_future:
+            response_future["response"] = reorder_fixtures(
+                response_future["response"])
+
+        # Check if the first fixture in response_past is live
+        if (
+            "response" in response_past
+            and response_past["response"]
+            and response_past["response"][0]["fixture"]["status"]["long"]
+            in live_by_game_status
+        ):
+            # Remove the live fixture from past
+            live_fixture = response_past["response"].pop(0)
+            # Add the live fixture to the start of future
+            if "response" in response_future:
+                response_future["response"].insert(0, live_fixture)
+            else:
+                response_future["response"] = [live_fixture]
+
+        return {
+            "past": response_past,
+            "future": response_future,
+        }
+
+
+
 
 # -------------------------------
 # Request Parser
@@ -299,20 +541,23 @@ jobs = {
     "allPublic": {
         "handler": get_all_public_saves,
         "kwargs": {},
-        "interval": {"minutes": 5},
+        "interval": {"minutes": 1},
         "cols_to_update": ["data", "today", "counter"],
         "updates": False,
     },
     "getTeamOfLeague": {
-        "handler": "getTeamOfLeague",
-        "kwargs": {},
-        "interval": {"minutes": 5},
+        "handler": get_teams_of_league,
+        "kwargs": {"league_id" : "140"},
+        "interval": {"days": 7},
         "cols_to_update": ["data", "today", "counter"],
         "updates": True,
     },
-    "all": {
-        "handler": "api_all",
-        "interval": None,
+    "nextGames": {
+        "handler": get_next_games,
+        "kwargs": {"team_id" : "140"},
+        "interval": {"days": 1},
+        "cols_to_update": ["data", "today", "counter"],
+        "updates": True,
     },
 }
 
@@ -331,6 +576,7 @@ def fetch(collection_id: str, document_id: str, update: str):
         return {"error": "Invalid update job"}, 400
 
     # Retrieve the record from the database
+    print (f"[AT FETCH] collection_id {collection_id} document_id {document_id}")
     record = cf.common_get_record(collection_id, document_id)
 
     # If record does not exist, return 404
@@ -369,7 +615,7 @@ def fetch(collection_id: str, document_id: str, update: str):
     # ------------------------------------------------------------
     if not should_update or job.get("updates") is False:
         print(
-            f"[CACHE] {document_id} -> this function does updates {not job.get('updates')}"
+            f"[CACHE] {document_id} -> this function does updates by rule of by interval {not job.get('updates')}"
         )
         return decode_record(record)
 
@@ -431,6 +677,10 @@ def all_public(data):
 
 
 def teams_of_league(data):
+    # print (f"current league in file {jobs[data['update']]['kwargs']['league_id']}")
+    jobs[data['update']]['kwargs']['league_id']  = data['leagueId']
+    # print (f"target league in file {jobs[data['update']]['kwargs']['league_id']}")
+    # pprint (jobs)
     return fetch(
         os.getenv("get_teams_in_league_collection_id"),
         f"mam_league_{data['leagueId']}",
@@ -439,6 +689,9 @@ def teams_of_league(data):
 
 
 def next_games(data):
+
+    jobs[data['update']]['kwargs']['team_id']  = data['teamId']
+
     return fetch(
         os.getenv("next_games_collection_id"),
         f"next_games_team_{data['teamId']}",
@@ -459,7 +712,16 @@ routes = {
 
 if __name__ == "__main__":
 
-    handler = routes.get("allPublic")
-    pprint (handler({"update": "allPublic"}))
-    # api_leagues_by_country()
-    # pprint (get_all_public_saves(False))
+    pass
+
+    for target in routes:
+        if target in routes:
+
+            # target = "leaguesByCountry"
+            leagueId = 2
+            teamId = 180
+
+            handler = routes.get(target)
+            print (handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
+            # api_leagues_by_country()
+            # pprint (get_all_public_saves(False))
