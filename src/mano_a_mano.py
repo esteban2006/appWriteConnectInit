@@ -836,47 +836,37 @@ def create_account(data):
 
 def get_account(data):
 
-    print ("step 01")
+    account = cf.common_get_record(
+        "mam_users",
+        cf.common_at_id(data["email"])
+    )["data"]
 
-    account = cf.common_get_record("mam_users",cf.common_at_id(data["email"]))["data"]
-
-    if not account:
-        return {"error": "Account not found"}, 404
-
-    fields = ["uid", "email", "saves", "fav_teams"]
     new_data = {}
+    to_return = ["uid", "email", "saves", "fav_teams"]
 
-    print ("step 02")
+    for key in to_return:
 
-    for field in fields:
-
-        print ("step 03")
-
-        value = account.get(field)
-
-        if value is None:
+        if key not in account:
             continue
 
-        decoded = cf.common_decode_one_value(value)[field]
+        if key != "uid":
+            decoded = cf.common_decode_one_value(account[key])[key]
+            new_data[key] = decoded
 
-        print ("step 04")
-
-        if field == "uid":
-            if not cf.common_verify_payment_token(decoded):
-                return {"error": "Invalid token, please contact admin"}, 400
-            
-            print ("step 05")
-
-            new_data["token"] = value
         else:
-            new_data[field] = decoded
+            new_data["token"] = account[key]
 
-    # regenerate encoded token
-    new_data["token"] = cf.common_encode_dict({
+            decoded_token = cf.common_decode_one_value(account[key])[key]
+
+            if not cf.common_verify_payment_token(decoded_token):
+                return {"error": "Invalid token, please contact admin"}, 400
+
+    new_token = cf.common_encode_dict({
         "token": new_data.get("token"),
-        "email": new_data.get("email"),
-        "exp": int(time.time()) + 10080 * 60 # 10080 one week
+        "email": new_data.get("email")
     })
+
+    new_data["token"] = new_token
 
     return new_data
 
@@ -928,25 +918,25 @@ if __name__ == "__main__":
         "verification_email_sent_count": "yes",
     }
 
-    login_data = {"email": data["email"], "password": data["password"]}
+    # login_data = {"email": data["email"], "password": data["password"]}
 
-    for target in routes:
-        if target == "getAccount":
+    # for target in routes:
+    #     if target == "getAccount":
 
-            # target = "leaguesByCountry"
-            leagueId = 331
-            teamId = 66
+    #         # target = "leaguesByCountry"
+    #         leagueId = 331
+    #         teamId = 66
 
-            handler = routes.get(target)
-            if target == "createAccount":
-                print(handler(data))
+    #         handler = routes.get(target)
+    #         if target == "createAccount":
+    #             print(handler(data))
 
-            elif target == "getAccount":
-                pprint(handler(login_data))
+    #         elif target == "getAccount":
+    #             pprint(handler(login_data))
 
-            else:
-                print(
-                    handler({"update": target, "leagueId": leagueId, "teamId": teamId})
-                )
-            # api_leagues_by_country()
-            # pprint (get_all_public_saves(False))
+    #         else:
+    #             print(
+    #                 handler({"update": target, "leagueId": leagueId, "teamId": teamId})
+    #             )
+    #         # api_leagues_by_country()
+    #         # pprint (get_all_public_saves(False))

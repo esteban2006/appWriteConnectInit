@@ -137,7 +137,7 @@ def teams_in_league():
 
 
 def login():
-    print("sending teams_in_league via REST API")
+    print("sending Login via REST API")
     payload = {
         "body": json.dumps(
             {
