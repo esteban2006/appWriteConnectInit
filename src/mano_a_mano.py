@@ -680,6 +680,176 @@ def next_games(data):
     )
 
 
+def create_account(data):
+
+    uid = cf.common_generate_payment_token(39999999)["token"]
+    now = cf.common_get_millis()
+    id = cf.common_at_id(data["email"])
+
+    for key in list(data.keys()):
+
+        # -------------------------
+        # ACCOUNT ID
+        # -------------------------
+        if key == "account_id":
+            data[key] = cf.common_encode_one_value(
+                {key: cf.common_at_id(data["email"])}
+            )
+
+        # -------------------------
+        # ACCOUNT VERIFIED
+        # -------------------------
+        elif key == "account_verified":
+            data[key] = cf.common_encode_one_value({key: False})
+
+        # -------------------------
+        # AVATAR
+        # -------------------------
+        elif key == "avatar":
+            avatar = f"https://ui-avatars.com/api/?name={data['first_name']}+{data['last_name']}&background=F2C94C&color=fff&bold=true&rounded=true&format=svg"
+            data[key] = cf.common_encode_one_value({key: avatar})
+
+        # -------------------------
+        # UID
+        # -------------------------
+        elif key == "uid":
+            data[key] = cf.common_encode_one_value({key: uid})
+
+        # -------------------------
+        # BALANCE
+        # -------------------------
+        elif key == "balance":
+            data[key] = cf.common_encode_one_value({key: 0})
+
+        # -------------------------
+        # BALANCE HISTORY
+        # -------------------------
+        elif key == "balance_history":
+            data[key] = cf.common_encode_one_value(
+                {
+                    key: [
+                        {
+                            "id": "INIT-333",
+                            "user_id": uid,
+                            "type": "deposit",
+                            "amount": 0,
+                            "balance_before": 0,
+                            "balance_after": 0,
+                            "reference_id": "INIT-333",
+                            "created_at": now,
+                        }
+                    ]
+                }
+            )
+
+        # -------------------------
+        # BUSINESS TAX
+        # -------------------------
+        elif key == "busines_tax":
+            data[key] = cf.common_encode_one_value({key: False})
+
+        # -------------------------
+        # CREATED AT
+        # -------------------------
+        elif key == "created_at":
+            data[key] = cf.common_encode_one_value({key: now})
+
+        # -------------------------
+        # DEPOSITS
+        # -------------------------
+        elif key == "deposits":
+            data[key] = cf.common_encode_one_value(
+                {
+                    key: [
+                        {
+                            "id": "INIT-333",
+                            "user_id": uid,
+                            "type": "deposit",
+                            "amount": 0,
+                            "balance_before": 0,
+                            "balance_after": 0,
+                            "reference_id": "INIT-333",
+                            "created_at": now,
+                        }
+                    ]
+                }
+            )
+
+        # -------------------------
+        # EMAIL
+        # -------------------------
+        elif key == "email":
+            data[key] = cf.common_encode_one_value({key: data["email"]})
+
+        # -------------------------
+        # FAVORITE TEAMS
+        # -------------------------
+        elif key == "fav_teams":
+            data[key] = cf.common_encode_one_value({key: []})
+
+        # -------------------------
+        # LAST STORE UPDATE
+        # -------------------------
+        elif key == "last_store_update":
+            data[key] = cf.common_encode_one_value({key: now})
+
+        # -------------------------
+        # PUBLIC KEY (2FA)
+        # -------------------------
+        elif key == "public_key":
+            data[key] = cf.common_encode_one_value(
+                {key: cf.common_generate_2fa_secret()}
+            )
+
+        # -------------------------
+        # REFERRAL ID
+        # -------------------------
+        elif key == "referral_id":
+            data[key] = cf.common_encode_one_value({key: cf.common_generate_int_id(10)})
+
+        # -------------------------
+        # BOOLEAN STRING FIXES
+        # -------------------------
+        elif key in ["marketing_accepted"]:
+            value = True if data[key] == "yes" else False
+            data[key] = cf.common_encode_one_value({key: value})
+
+        elif key in ["has_code"]:
+            value = True if data[key] == "yes" else False
+            data[key] = cf.common_encode_one_value({key: value})
+
+        # -------------------------
+        # PASSWORD
+        # -------------------------
+        elif key == "password":
+            data[key] = cf.common_encode_one_value({key: data["password"]})
+
+        # -------------------------
+        # DEFAULT ENCODE
+        # -------------------------
+        else:
+            data[key] = cf.common_encode_one_value({key: data[key]})
+
+    # print(f"decoded email >>> {cf.common_decode_one_value(data['email'])}")
+
+    # for key in data:
+    #     print(f"decoded key >>> {cf.common_decode_one_value(data[key])}")
+    #     if key == "uid":
+    #         print(
+    #             cf.common_verify_payment_token(
+    #                 cf.common_decode_one_value(data[key])["uid"]
+    #             )
+    #         )
+
+    record = cf.common_create_record("mam_users", data, id)
+    return record
+
+
+def get_account(data):
+
+    account = cf.common_get_record("mam_users", cf.common_at_id(data["email"]))
+
+
 # -------------------------------
 # Route Map
 # -------------------------------
@@ -688,6 +858,8 @@ routes = {
     "leaguesByCountry": leagues_by_country,
     "getTeamOfLeague": teams_of_league,
     "nextGames": next_games,
+    "createAccount": create_account,
+    "getAccount": get_account,
 }
 
 
@@ -695,14 +867,53 @@ if __name__ == "__main__":
 
     pass
 
+    data = {
+        "account_id": "email with at instead of @",
+        "account_verified": "no",
+        "avatar": "https://ui-avatars.com/api/?name=Esteban+Jandres&background=F2C94C&color=fff&bold=true&rounded=true&format=svg",
+        "balance": 0,
+        "balance_history": ["wallet_transation"],
+        "created_at": "millis",
+        "deposits": ["wallet_transation"],
+        "email": "esteban@gmail.com",
+        "fav_teams": [],
+        "first_name": "Esteban Gilberto",
+        "has_code": "no",
+        "language": "es",
+        "last_name": "Gutierrez Jandres",
+        "last_store_update": "common_get_millis()",
+        "last_store_update_counter": 0,
+        "marketing_accepted": "yes",
+        "password": "Mysuperpassword",
+        "profile": "profile",
+        "public_key": "cf.common_generate_2fa_secret()",
+        "referred_by": "",
+        "referral_id": "cf.common_generate_int_id()",
+        "role": "user",
+        "saves": [],
+        "tax": "n/a",
+        "uid": "40 digits id",
+        "user_name": "",
+        "verification_email_sent_count": "yes",
+    }
+
+    login_data = {"email": data["password"], "password": data["password"]}
+
     for target in routes:
-        if target == "nextGames":
+        if target == "getAccount":
 
             # target = "leaguesByCountry"
             leagueId = 331
             teamId = 66
 
             handler = routes.get(target)
-            print(handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
+            if target == "createAccount":
+                print(handler(data))
+            elif target == "getAccount":
+                print(handler(login_data))
+            else:
+                print(
+                    handler({"update": target, "leagueId": leagueId, "teamId": teamId})
+                )
             # api_leagues_by_country()
             # pprint (get_all_public_saves(False))

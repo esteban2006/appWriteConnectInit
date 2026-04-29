@@ -563,6 +563,8 @@ def common_create_record(table_name="security_db", data=None, row_id=None):
 
         except AppwriteException as e:
             print(f"Attempt {attempt} failed: {e.message}")
+            if "already exists" in e.message:
+                return {e.message}
 
             # Last attempt → return error
             if attempt == MAX_RETRIES:
@@ -719,7 +721,9 @@ def common_generate_id(prefix="333", id_len=40):
 
 
 def common_generate_int_id(id_len=128):
-    return secrets.randbits(id_len)
+    return (
+        f"{''.join(random.SystemRandom().choice(string.digits) for _ in range(id_len))}"
+    )
 
 
 def common_rate_limits_dicts():
@@ -886,7 +890,6 @@ def common_generate_payment_token(minutes=5):
 
     pid = secrets.randbits(32)
     secret = os.getenv("secret_jwt")
-    print(secret)
     exp = int(time.time()) + minutes * 60
 
     raw = pid.to_bytes(4, "big") + exp.to_bytes(4, "big")
@@ -1298,6 +1301,8 @@ if __name__ == "__main__":
         "reset_at": "2026-03-19T06:32:25.100+00:00",
     }
     row_id = "test_one_02"
+
+    print(common_generate_int_id(8))
 
     # pprint(common_get_all_records("mam_public_saves"))
 
