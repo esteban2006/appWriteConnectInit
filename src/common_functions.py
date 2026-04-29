@@ -450,6 +450,8 @@ def common_encode_one_value(one_value):
 def common_decode_one_value(token):
     secret = os.getenv("secret_jwt")
 
+    print("SECRET =", os.getenv("secret_jwt"))
+    print("SECRET =", secret)
     if not secret:
         raise ValueError("Missing secret_jwt environment variable")
 

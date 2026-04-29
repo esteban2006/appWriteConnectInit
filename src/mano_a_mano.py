@@ -937,7 +937,7 @@ if __name__ == "__main__":
         "balance_history": ["wallet_transation"],
         "created_at": "millis",
         "deposits": ["wallet_transation"],
-        "email": "esteban1@gmail.com",
+        "email": "esteban@gmail.com",
         "fav_teams": [],
         "first_name": "Esteban Gilberto",
         "has_code": "no",
