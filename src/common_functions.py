@@ -495,6 +495,12 @@ def common_encode_dict(data_to_encrypt):
 
 def common_decode_dict(encoded):
 
+    """_summary_
+
+    Returns:
+        dict or none
+    """
+
     if not encoded:
         return None
 
@@ -505,8 +511,8 @@ def common_decode_dict(encoded):
         keys_to_try.append(env_key)
 
     # fallback key
-    keys_to_try.append("secret_jwt2")
-    keys_to_try.append("account_at_999")
+    # keys_to_try.append("secret_jwt2")
+    # keys_to_try.append("account_at_999")
 
     for key in keys_to_try:
         try:
@@ -1302,7 +1308,8 @@ if __name__ == "__main__":
     }
     row_id = "test_one_02"
 
-    print(common_generate_int_id(8))
+    print (common_decode_dict("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbiI6ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUoxYVdRaU9pSXhjM2xMUnpsd1ZIQlpNVlZvVFZKclRTSjkuemlyZlVrVnpOMjhRdHJ2dl9hTHMzWGg2T1Racnc1SU9ZN1IwUzhIdldLayIsImVtYWlsIjoiZXN0ZWJhbkBnbWFpbC5jb20iLCJleHAiOjE3Nzc0OTI2NDR9.LB0OVxHsy4cMMld9mUbrmqXdHilrMHdqu-s_IbngtNs"))
+    # print(common_generate_int_id(8))
 
     # pprint(common_get_all_records("mam_public_saves"))
 

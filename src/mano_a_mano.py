@@ -830,27 +830,45 @@ def create_account(data):
         else:
             data[key] = cf.common_encode_one_value({key: data[key]})
 
-    # print(f"decoded email >>> {cf.common_decode_one_value(data['email'])}")
-
-    # for key in data:
-    #     print(f"decoded key >>> {cf.common_decode_one_value(data[key])}")
-    #     if key == "uid":
-    #         print(
-    #             cf.common_verify_payment_token(
-    #                 cf.common_decode_one_value(data[key])["uid"]
-    #             )
-    #         )
-
     record = cf.common_create_record("mam_users", data, id)
     return record
 
 
 def get_account(data):
 
-    pprint (data)
+    account = cf.common_get_record("mam_users",cf.common_at_id(data["email"]))["data"]
 
-    account = cf.common_get_record("mam_users", cf.common_at_id(data["email"]))
-    return account
+    if not account:
+        return {"error": "Account not found"}, 404
+
+    fields = ["uid", "email", "saves", "fav_teams"]
+    new_data = {}
+
+    for field in fields:
+
+        value = account.get(field)
+
+        if value is None:
+            continue
+
+        decoded = cf.common_decode_one_value(value)[field]
+
+        if field == "uid":
+            if not cf.common_verify_payment_token(decoded):
+                return {"error": "Invalid token, please contact admin"}, 400
+
+            new_data["token"] = value
+        else:
+            new_data[field] = decoded
+
+    # regenerate encoded token
+    new_data["token"] = cf.common_encode_dict({
+        "token": new_data.get("token"),
+        "email": new_data.get("email"),
+        "exp": int(time.time()) + 10080 * 60 # 10080 one week
+    })
+
+    return new_data
 
 
 # -------------------------------
@@ -878,7 +896,7 @@ if __name__ == "__main__":
     #     "balance_history": ["wallet_transation"],
     #     "created_at": "millis",
     #     "deposits": ["wallet_transation"],
-    #     "email": "esteban@gmail.com",
+    #     "email": "esteban1@gmail.com",
     #     "fav_teams": [],
     #     "first_name": "Esteban Gilberto",
     #     "has_code": "no",
@@ -903,7 +921,7 @@ if __name__ == "__main__":
     # login_data = {"email": data["email"], "password": data["password"]}
 
     # for target in routes:
-    #     if target == "getAccount":
+    #     if target == "allPublic":
 
     #         # target = "leaguesByCountry"
     #         leagueId = 331
@@ -914,11 +932,11 @@ if __name__ == "__main__":
     #             print(handler(data))
 
     #         elif target == "getAccount":
-    #             print(handler(login_data))
+    #             pprint(handler(login_data))
 
     #         else:
     #             print(
     #                 handler({"update": target, "leagueId": leagueId, "teamId": teamId})
     #             )
-            # api_leagues_by_country()
-            # pprint (get_all_public_saves(False))
+    #         # api_leagues_by_country()
+    #         # pprint (get_all_public_saves(False))
