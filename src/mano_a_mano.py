@@ -891,11 +891,11 @@ def get_account(data):
     new_data = {}
 
     print (f"email in account -> {'email' in account}")
-    decoded_email = cf.common_decode_one_value(account["email"])["email"]
+    decoded_email = cf.common_decode_one_value(account["email"])
     print (f"decoded email {decoded_email}")
 
     if "email" in account:
-        new_data["email"] = cf.common_decode_one_value(account["email"])["email"]
+        new_data["email"] = cf.common_decode_one_value(account["email"])
 
     if "uid" in account:
         new_data["token"] = account["uid"]   # keep encrypted
@@ -903,9 +903,9 @@ def get_account(data):
     new_data_encoded = cf.common_encode_dict(new_data)
 
     to_sent = {
-        "fav_teams" : cf.common_decode_one_value(account["fav_teams"])["fav_teams"],
-        "saves" : cf.common_decode_one_value(account["saves"])["saves"],
-        "email": cf.common_decode_one_value(account["email"])["email"],
+        "fav_teams" : cf.common_decode_one_value(account["fav_teams"]),
+        "saves" : cf.common_decode_one_value(account["saves"]),
+        "email": cf.common_decode_one_value(account["email"]),
         "token": new_data_encoded
     }
 
