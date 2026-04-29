@@ -886,7 +886,13 @@ def get_account(data):
         cf.common_at_id(data["email"])
     )["data"]
 
+    pprint (account)
+
     new_data = {}
+
+    print (f"email in account -> {'email' in account}")
+    decoded_email = cf.common_decode_one_value(account["email"])["email"]
+    print (f"decoded email {decoded_email}")
 
     if "email" in account:
         new_data["email"] = cf.common_decode_one_value(account["email"])["email"]
