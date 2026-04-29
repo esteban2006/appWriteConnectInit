@@ -835,6 +835,51 @@ def create_account(data):
 
 
 def get_account(data):
+    """
+    Retrieve minimal account information for authentication.
+
+    This function fetches the user record from the `mam_users` store using the
+    normalized email key. Only a minimal subset of fields is returned to the
+    client for security reasons.
+
+    Returned structure:
+        {
+            "fav_teams": <decoded fav_teams>,
+            "saves": <decoded saves>,
+            "email": <decoded email>,
+            "token": <encoded dictionary>
+        }
+
+    Double-Encoding Behavior:
+    -------------------------
+    The `token` field is intentionally encoded twice.
+
+    1. The `uid` stored in the database is already an encoded value
+       produced by `cf.common_encode_one_value()`.
+
+    2. A new dictionary `{email, token}` is created and encoded again
+       using `cf.common_encode_dict()`.
+
+    Purpose:
+        - Prevent client-side manipulation of authentication data
+        - Ensure payload integrity during transport
+        - Allow the backend to verify both identity and session payload
+        - Hide the raw UID structure from the client
+
+    The frontend should treat `token` as an opaque authentication token
+    and send it back to the API without attempting to decode it.
+
+    Parameters
+    ----------
+    data : dict
+        Expected to contain:
+            - email : str
+
+    Returns
+    -------
+    dict
+        Safe payload containing the decoded email and a secure encoded token.
+    """
 
     account = cf.common_get_record(
         "mam_users",
@@ -842,33 +887,23 @@ def get_account(data):
     )["data"]
 
     new_data = {}
-    to_return = ["uid", "email", "saves", "fav_teams"]
 
-    for key in to_return:
+    if "email" in account:
+        new_data["email"] = cf.common_decode_one_value(account["email"])["email"]
 
-        if key not in account:
-            continue
+    if "uid" in account:
+        new_data["token"] = account["uid"]   # keep encrypted
 
-        if key != "uid":
-            decoded = cf.common_decode_one_value(account[key])[key]
-            new_data[key] = decoded
+    new_data_encoded = cf.common_encode_dict(new_data)
 
-        else:
-            new_data["token"] = account[key]
+    to_sent = {
+        "fav_teams" : cf.common_decode_one_value(account["fav_teams"])["fav_teams"],
+        "saves" : cf.common_decode_one_value(account["saves"])["saves"],
+        "email": cf.common_decode_one_value(account["email"])["email"],
+        "token": new_data_encoded
+    }
 
-            decoded_token = cf.common_decode_one_value(account[key])[key]
-
-            if not cf.common_verify_payment_token(decoded_token):
-                return {"error": "Invalid token, please contact admin"}, 400
-
-    new_token = cf.common_encode_dict({
-        "token": new_data.get("token"),
-        "email": new_data.get("email")
-    })
-
-    new_data["token"] = new_token
-
-    return new_data
+    return to_sent
 
 
 # -------------------------------
@@ -918,25 +953,25 @@ if __name__ == "__main__":
         "verification_email_sent_count": "yes",
     }
 
-    # login_data = {"email": data["email"], "password": data["password"]}
+    login_data = {"email": data["email"], "password": data["password"]}
 
-    # for target in routes:
-    #     if target == "getAccount":
+    for target in routes:
+        if target == "getAccount":
 
-    #         # target = "leaguesByCountry"
-    #         leagueId = 331
-    #         teamId = 66
+            # target = "leaguesByCountry"
+            leagueId = 331
+            teamId = 66
 
-    #         handler = routes.get(target)
-    #         if target == "createAccount":
-    #             print(handler(data))
+            handler = routes.get(target)
+            if target == "createAccount":
+                print(handler(data))
 
-    #         elif target == "getAccount":
-    #             pprint(handler(login_data))
+            elif target == "getAccount":
+                pprint(handler(login_data))
 
-    #         else:
-    #             print(
-    #                 handler({"update": target, "leagueId": leagueId, "teamId": teamId})
-    #             )
+            else:
+                print(
+                    handler({"update": target, "leagueId": leagueId, "teamId": teamId})
+                )
     #         # api_leagues_by_country()
     #         # pprint (get_all_public_saves(False))
