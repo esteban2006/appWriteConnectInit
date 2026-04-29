@@ -836,6 +836,8 @@ def create_account(data):
 
 def get_account(data):
 
+    print ("step 01")
+
     account = cf.common_get_record("mam_users",cf.common_at_id(data["email"]))["data"]
 
     if not account:
@@ -844,7 +846,11 @@ def get_account(data):
     fields = ["uid", "email", "saves", "fav_teams"]
     new_data = {}
 
+    print ("step 02")
+
     for field in fields:
+
+        print ("step 03")
 
         value = account.get(field)
 
@@ -853,9 +859,13 @@ def get_account(data):
 
         decoded = cf.common_decode_one_value(value)[field]
 
+        print ("step 04")
+
         if field == "uid":
             if not cf.common_verify_payment_token(decoded):
                 return {"error": "Invalid token, please contact admin"}, 400
+            
+            print ("step 05")
 
             new_data["token"] = value
         else:
@@ -888,55 +898,55 @@ if __name__ == "__main__":
 
     pass
 
-    # data = {
-    #     "account_id": "email with at instead of @",
-    #     "account_verified": "no",
-    #     "avatar": "https://ui-avatars.com/api/?name=Esteban+Jandres&background=F2C94C&color=fff&bold=true&rounded=true&format=svg",
-    #     "balance": 0,
-    #     "balance_history": ["wallet_transation"],
-    #     "created_at": "millis",
-    #     "deposits": ["wallet_transation"],
-    #     "email": "esteban1@gmail.com",
-    #     "fav_teams": [],
-    #     "first_name": "Esteban Gilberto",
-    #     "has_code": "no",
-    #     "language": "es",
-    #     "last_name": "Gutierrez Jandres",
-    #     "last_store_update": "common_get_millis()",
-    #     "last_store_update_counter": 0,
-    #     "marketing_accepted": "yes",
-    #     "password": "Mysuperpassword",
-    #     "profile": "profile",
-    #     "public_key": "cf.common_generate_2fa_secret()",
-    #     "referred_by": "",
-    #     "referral_id": "cf.common_generate_int_id()",
-    #     "role": "user",
-    #     "saves": [],
-    #     "tax": "n/a",
-    #     "uid": "40 digits id",
-    #     "user_name": "",
-    #     "verification_email_sent_count": "yes",
-    # }
+    data = {
+        "account_id": "email with at instead of @",
+        "account_verified": "no",
+        "avatar": "https://ui-avatars.com/api/?name=Esteban+Jandres&background=F2C94C&color=fff&bold=true&rounded=true&format=svg",
+        "balance": 0,
+        "balance_history": ["wallet_transation"],
+        "created_at": "millis",
+        "deposits": ["wallet_transation"],
+        "email": "esteban1@gmail.com",
+        "fav_teams": [],
+        "first_name": "Esteban Gilberto",
+        "has_code": "no",
+        "language": "es",
+        "last_name": "Gutierrez Jandres",
+        "last_store_update": "common_get_millis()",
+        "last_store_update_counter": 0,
+        "marketing_accepted": "yes",
+        "password": "Mysuperpassword",
+        "profile": "profile",
+        "public_key": "cf.common_generate_2fa_secret()",
+        "referred_by": "",
+        "referral_id": "cf.common_generate_int_id()",
+        "role": "user",
+        "saves": [],
+        "tax": "n/a",
+        "uid": "40 digits id",
+        "user_name": "",
+        "verification_email_sent_count": "yes",
+    }
 
-    # login_data = {"email": data["email"], "password": data["password"]}
+    login_data = {"email": data["email"], "password": data["password"]}
 
-    # for target in routes:
-    #     if target == "allPublic":
+    for target in routes:
+        if target == "getAccount":
 
-    #         # target = "leaguesByCountry"
-    #         leagueId = 331
-    #         teamId = 66
+            # target = "leaguesByCountry"
+            leagueId = 331
+            teamId = 66
 
-    #         handler = routes.get(target)
-    #         if target == "createAccount":
-    #             print(handler(data))
+            handler = routes.get(target)
+            if target == "createAccount":
+                print(handler(data))
 
-    #         elif target == "getAccount":
-    #             pprint(handler(login_data))
+            elif target == "getAccount":
+                pprint(handler(login_data))
 
-    #         else:
-    #             print(
-    #                 handler({"update": target, "leagueId": leagueId, "teamId": teamId})
-    #             )
-    #         # api_leagues_by_country()
-    #         # pprint (get_all_public_saves(False))
+            else:
+                print(
+                    handler({"update": target, "leagueId": leagueId, "teamId": teamId})
+                )
+            # api_leagues_by_country()
+            # pprint (get_all_public_saves(False))
