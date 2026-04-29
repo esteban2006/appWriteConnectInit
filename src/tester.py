@@ -69,7 +69,7 @@ def get_world_list():
         pprint(response.json())
 
 
-get_world_list()
+# get_world_list()
 
 
 def all_public():
@@ -134,3 +134,39 @@ def teams_in_league():
 
 
 # teams_in_league()
+
+
+def login():
+    print("sending teams_in_league via REST API")
+    payload = {
+        "body": json.dumps(
+            {
+                "update": "getAccount",
+                "key": "2KAAFF2WD5VWP6PUD8ULISSRN6ZAVA10EGFBO169V89A9A0XAG",
+                "document_id": "UYRP5H7G7B9WDQVSSNT1J2J770OLCC4DAGGIMMW3F0PJDCRL8A",
+                "collection": "3MMX72FR1K5EDNW7IR4JQ326VXKUMD455QGXY5L64NB3YQJ1LH",
+                "public_key": "348EUM2DFNASJ$C$8RZEVHELLZJM1RYX34KU6WYPOJQLSNVAHK5I4B",
+                "password": "password",
+                "year": 2024,
+                "email": "esteban@gmail.com"
+            }
+        ),
+        "async": False,
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code in [200, 201]:
+        result = response.json()
+        pprint(result)
+        print(
+            f"Function Output: \n\nFunction data type {type(result)} \n\n"
+            "Function inner data {type(result['responseBody'])}\n\n Raw data {response}"
+        )
+        print(result["responseBody"])
+    else:
+        print(f"Error {response.status_code}:")
+        pprint(response.json())
+
+
+login()
