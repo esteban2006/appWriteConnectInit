@@ -85,7 +85,6 @@ from appwrite.query import Query
 from jwt.exceptions import DecodeError, ExpiredSignatureError, InvalidTokenError
 from jwt.exceptions import InvalidKeyError
 
-
 if not os.getenv("appwrite_end_point"):
     try:
         from dotenv import load_dotenv
@@ -98,8 +97,10 @@ env_loading_key = "secret_jwt"
 env_loaded = os.getenv(env_loading_key)
 # print(f"env_loaded at common functions {type(env_loaded)}")
 
+
 def commond_decode_data(encoded):
     return common_decode_dict(encoded)
+
 
 def common_check_rate_limit(
     ip: str, action: str, window_seconds: int = 60
@@ -668,13 +669,14 @@ def common_get_all_records(table_id: str, limit: int = 100) -> List[Dict[str, An
             response = tables.list_rows(
                 database_id=db_id,
                 table_id=table_id,
-                queries=[
-                    Query.limit(limit),
-                    Query.offset(offset)
-                ]
+                queries=[Query.limit(limit), Query.offset(offset)],
             )
 
-            rows = response.get("rows", []) if isinstance(response, dict) else getattr(response, "rows", [])
+            rows = (
+                response.get("rows", [])
+                if isinstance(response, dict)
+                else getattr(response, "rows", [])
+            )
 
             if not rows:
                 break
@@ -690,7 +692,8 @@ def common_get_all_records(table_id: str, limit: int = 100) -> List[Dict[str, An
 
                 elif hasattr(result, "__dict__"):
                     data_dict = {
-                        k: v for k, v in result.__dict__.items()
+                        k: v
+                        for k, v in result.__dict__.items()
                         if not k.startswith("_")
                     }
 
@@ -1162,6 +1165,7 @@ def common_create_test_gemini_table(
         "profile",
         "public_key",
         "referred_by",
+        "referral_id",
         "role",
         "saves",
         "tax",

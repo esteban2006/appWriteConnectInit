@@ -69,7 +69,7 @@ def get_world_list():
         pprint(response.json())
 
 
-# get_world_list()
+get_world_list()
 
 
 def all_public():

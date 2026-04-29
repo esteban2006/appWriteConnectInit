@@ -684,8 +684,8 @@ def next_games(data):
 # Route Map
 # -------------------------------
 routes = {
-    "leaguesByCountry": leagues_by_country,
     "allPublic": all_public,
+    "leaguesByCountry": leagues_by_country,
     "getTeamOfLeague": teams_of_league,
     "nextGames": next_games,
 }
@@ -696,11 +696,11 @@ if __name__ == "__main__":
     pass
 
     for target in routes:
-        if target == "leaguesByCountry":
+        if target == "nextGames":
 
             # target = "leaguesByCountry"
             leagueId = 331
-            teamId = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWFndWVfaWQiOiJOUjIiLCJ0ZWFtc19sZW4iOjQxLjB9.IG9TaXjg05K_vF6FPJuAkYa8lISGaP2qUmYR_OGkZqo"
+            teamId = 66
 
             handler = routes.get(target)
             print(handler({"update": target, "leagueId": leagueId, "teamId": teamId}))
